@@ -1,0 +1,82 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'muokltd@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Vendor Applications: Full read & write for deployed public portal & admin dashboard
+    match /vendor_applications/{applicationId} {
+      allow read, write: if true;
+    }
+
+    // Attendee RSVPs: Full read & write for public ticket passes & gate check-ins
+    match /attendee_rsvps/{rsvpId} {
+      allow read, write: if true;
+    }
+
+    // Festival Configuration
+    match /festival_config/{configId} {
+      allow read, write: if true;
+    }
+
+    // Email Templates
+    match /email_templates/{templateId} {
+      allow read, write: if true;
+    }
+
+    // SMTP Configuration
+    match /email_config/{configId} {
+      allow read, write: if true;
+    }
+
+    // Payment & Crypto Configuration (USDT, ETH, BTC, Kraken, CashApp)
+    match /payment_config/{configId} {
+      allow read, write: if true;
+    }
+
+    // Invoices with Checkout & Crypto Payment Tracking
+    match /invoices/{invoiceId} {
+      allow read, write: if true;
+    }
+
+    // Outbound Email Logs
+    match /outbound_email_logs/{logId} {
+      allow read, write: if true;
+    }
+
+    // Event Locations, States & Cities
+    match /event_locations/{locationId} {
+      allow read, write: if true;
+    }
+
+    // Custom States & Cities
+    match /custom_locations/{docId} {
+      allow read, write: if true;
+    }
+
+    // Admins Collection
+    match /admins/{adminId} {
+      allow read, write: if true;
+    }
+  }
+}
+
