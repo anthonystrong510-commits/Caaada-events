@@ -10,12 +10,14 @@ import {
   PaymentConfig,
   Invoice,
   EventLocationMarket,
-  ScheduleEvent
+  ScheduleEvent,
+  VendorTrackerRecord
 } from '../../types';
 import { 
   auth, 
   adminSignOut,
   subscribeVendorApplications,
+  subscribeVendorTrackers,
   subscribeAttendeeRsvps,
   subscribeEmailTemplates,
   subscribeSmtpConfig,
@@ -35,7 +37,8 @@ import {
   seedSampleData,
   DEFAULT_SMTP_CONFIG,
   DEFAULT_FESTIVAL_CONFIG,
-  DEFAULT_PAYMENT_CONFIG
+  DEFAULT_PAYMENT_CONFIG,
+  DEFAULT_ETRANSFER_EMAIL
 } from '../../lib/firebase';
 import { DEFAULT_EMAIL_TEMPLATES } from '../../data/defaultEmailTemplates';
 import { sendAutomatedEmail } from '../../lib/emailService';
@@ -89,6 +92,7 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
 
   // Firestore Real-time Collections State
   const [applications, setApplications] = useState<VendorApplicationRecord[]>([]);
+  const [trackers, setTrackers] = useState<VendorTrackerRecord[]>([]);
   const [attendees, setAttendees] = useState<AttendeeRsvpRecord[]>([]);
   const [emailTemplates, setEmailTemplates] = useState<EmailTemplateData[]>(DEFAULT_EMAIL_TEMPLATES);
   const [smtpConfig, setSmtpConfig] = useState<SmtpConfigData>(DEFAULT_SMTP_CONFIG);
@@ -154,6 +158,7 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
     if (!currentUser && !isDemoAdmin) return;
 
     const unsubApps = subscribeVendorApplications((apps) => setApplications(apps));
+    const unsubTrackers = subscribeVendorTrackers((trk) => setTrackers(trk));
     const unsubRsvps = subscribeAttendeeRsvps((rsvps) => setAttendees(rsvps));
     const unsubTemplates = subscribeEmailTemplates((tmpls) => setEmailTemplates(tmpls));
     const unsubSmtp = subscribeSmtpConfig((cfg) => setSmtpConfig(cfg));
@@ -165,6 +170,7 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
 
     return () => {
       unsubApps();
+      unsubTrackers();
       unsubRsvps();
       unsubTemplates();
       unsubSmtp();
@@ -175,6 +181,29 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
       unsubSchedule();
     };
   }, [currentUser, isDemoAdmin]);
+
+  const mergedApplications = useMemo(() => {
+    if (trackers.length === 0) return applications;
+    const trackerMap = new Map<string, VendorTrackerRecord>(trackers.map((t) => [t.id, t]));
+    return applications.map((app) => {
+      const tr = trackerMap.get(app.id);
+      if (!tr) return app;
+      const shouldAdoptTrackerPayment =
+        !app.updatedAt || (tr.updatedAt && tr.updatedAt > app.updatedAt);
+      return {
+        ...app,
+        eTransferSecurityAnswer: tr.eTransferSecurityAnswer || app.eTransferSecurityAnswer,
+        eTransferPayerEmail: tr.eTransferPayerEmail || app.eTransferPayerEmail,
+        eTransferSubmittedAt: tr.eTransferSubmittedAt || app.eTransferSubmittedAt,
+        paymentStatus: shouldAdoptTrackerPayment ? tr.paymentStatus : (app.paymentStatus || tr.paymentStatus)
+      };
+    });
+  }, [applications, trackers]);
+
+  const resolvedSelectedAppForInspector = useMemo(() => {
+    if (!selectedAppForInspector) return null;
+    return mergedApplications.find((a) => a.id === selectedAppForInspector.id) || selectedAppForInspector;
+  }, [selectedAppForInspector, mergedApplications]);
 
   // Past Events Computation
   const pastLocations = useMemo(() => {
@@ -350,6 +379,8 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
         physical_address: festivalConfig.address,
         contact_email: smtpConfig.fromEmail,
         inquiry_email: smtpConfig.fromEmail,
+        etransfer_email: paymentConfig.eTransferEmail?.trim() || DEFAULT_ETRANSFER_EMAIL,
+        tracker_url: `${window.location.origin}/?track=${encodeURIComponent(app.id)}`,
         website_url: window.location.origin,
         custom_subject: 'Booth Placement & Setup Update',
         custom_message_body: 'We are reaching out regarding your vendor application details for the upcoming festival. Please let us know if you have any questions or require special hookups.'
@@ -414,10 +445,10 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
   };
 
   const tabTitles: Record<AdminTab, { title: string; subtitle: string }> = {
-    dashboard: { title: 'Operations Dashboard', subtitle: 'Real-time overview of applications, attendance, crypto reserves & revenue' },
-    applications: { title: 'Vendor Applications', subtitle: 'Exhibitor review, batch invoicing, zone allocations & approval queue' },
-    invoices: { title: 'Invoices & Crypto Checkout', subtitle: 'Payment links, invoice dispatching, crypto settlement & receipts' },
-    payments: { title: 'Payment Configuration & Wallets', subtitle: 'USDT (TRC20/ERC20/SOL), ETH, BTC, CashApp, Kraken & Wire' },
+    dashboard: { title: 'Operations Dashboard', subtitle: 'Real-time overview of applications, attendance, E-Transfer verification & revenue' },
+    applications: { title: 'Vendor Applications', subtitle: 'Exhibitor approval queue, payment status tracking, E-Transfer verification & zone allocations' },
+    invoices: { title: 'Invoices & E-Transfer Checkout', subtitle: 'Payment links, invoice dispatching, E-Transfer verification & receipts' },
+    payments: { title: 'E-Transfer Payment Setup', subtitle: 'Configure E-Transfer recipient email and instructions displayed to vendors' },
     attendees: { title: 'Attendee RSVPs & Fast-Passes', subtitle: 'Visitor passes, attendance forecasts & gate check-ins' },
     booths: { title: 'Booth Spaces & Pricing Tiers', subtitle: 'Dimension limits, equipment inclusions & daily fees' },
     schedule: { title: 'Festival Schedule & Lineup', subtitle: 'Stage entertainment, artisan demos & hourly agenda' },
@@ -455,7 +486,7 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
             setCurrentTab(tab);
             setGlobalSearchQuery('');
           }}
-          pendingAppsCount={applications.filter(a => a.status === 'pending').length}
+          pendingAppsCount={mergedApplications.filter(a => a.status === 'pending').length}
           totalAttendeesCount={attendees.length}
           unpaidInvoicesCount={unpaidInvoicesCount}
           onExitAdmin={onExitAdmin}
@@ -477,7 +508,7 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
                 setIsMobileMenuOpen(false);
                 setGlobalSearchQuery('');
               }}
-              pendingAppsCount={applications.filter(a => a.status === 'pending').length}
+              pendingAppsCount={mergedApplications.filter(a => a.status === 'pending').length}
               totalAttendeesCount={attendees.length}
               unpaidInvoicesCount={unpaidInvoicesCount}
               onExitAdmin={onExitAdmin}
@@ -597,7 +628,7 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
             )}
             {currentTab === 'dashboard' && (
               <DashboardTab
-                applications={applications}
+                applications={mergedApplications}
                 attendees={attendees}
                 invoices={invoices}
                 paymentConfig={paymentConfig}
@@ -615,12 +646,12 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
 
             {currentTab === 'applications' && (
               <VendorApplicationsTab
-                applications={applications}
+                applications={mergedApplications}
                 invoices={invoices}
                 onUpdateStatus={(id, updates) => updateVendorApplicationStatus(id, updates)}
                 onDeleteApplication={(id) => deleteVendorApplication(id)}
                 onOpenEmailModal={handleOpenEmailModalForVendor}
-                selectedAppForModal={selectedAppForInspector}
+                selectedAppForModal={resolvedSelectedAppForInspector}
                 onSelectAppForModal={setSelectedAppForInspector}
                 isCreateModalOpen={isCreateVendorModalOpen}
                 onSetCreateModalOpen={setIsCreateVendorModalOpen}
@@ -658,7 +689,7 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
             )}
 
             {currentTab === 'booths' && (
-              <BoothsManagerTab applications={applications} />
+              <BoothsManagerTab applications={mergedApplications} />
             )}
 
             {currentTab === 'schedule' && (

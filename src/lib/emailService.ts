@@ -14,6 +14,8 @@ import {
   logOutboundEmail, 
   DEFAULT_FESTIVAL_CONFIG, 
   DEFAULT_SMTP_CONFIG,
+  DEFAULT_ETRANSFER_EMAIL,
+  getPaymentConfig,
   getSmtpConfigOnce,
   getFestivalConfigOnce,
   getEmailTemplateByKey
@@ -74,12 +76,22 @@ export async function sendAutomatedEmail(options: SendEmailOptions): Promise<Sen
   const physicalAddr = festivalConfig?.address || 'Columbia Festival & Market Grounds, 1100 Lincoln St, Columbia, SC 29201, USA';
   const contactEmail = smtpConfig?.fromEmail || festivalConfig?.contactEmail || 'events@companydesk.online';
 
+  let eTransferEmail = DEFAULT_ETRANSFER_EMAIL;
+  try {
+    const paymentCfg = await getPaymentConfig();
+    if (paymentCfg?.eTransferEmail?.trim()) {
+      eTransferEmail = paymentCfg.eTransferEmail.trim();
+    }
+  } catch {}
+
   // Merge default global variables with passed variables
   const mergedVariables: Record<string, string | number> = {
     festival_name: festivalConfig?.name || 'Columbia Festival Market',
     location: physicalAddr,
     venue_name: festivalConfig?.venueName || 'Columbia Event Grounds',
     contact_email: contactEmail,
+    etransfer_email: eTransferEmail,
+    tracker_url: `${baseUrl}/?track=`,
     current_year: new Date().getFullYear(),
     recipient_name: recipientName,
     recipient_email: recipientEmail,
@@ -225,6 +237,7 @@ export async function sendVendorApplicationReceivedEmail(
       days_requested: daysFormatted,
       total_fee: `$${app.totalCalculatedFee || 0}`,
       category: app.category,
+      payment_link: `${typeof window !== 'undefined' ? window.location.origin : ''}/?track=${encodeURIComponent(app.id)}`,
     },
     festivalConfig,
     smtpConfig,
@@ -293,7 +306,7 @@ export async function sendVendorApprovalEmail(
       zone_assignment: zoneAssignment || app.boothZoneAssignment || 'Main Artisan Row',
       days_approved: daysFormatted,
       total_fee: `${app.totalCalculatedFee || 0}`,
-      payment_link: `${window.location.origin}/portal/vendor/${app.id}`
+      payment_link: `${typeof window !== 'undefined' ? window.location.origin : ''}/?track=${encodeURIComponent(app.id)}`
     },
     festivalConfig,
     smtpConfig,
@@ -327,6 +340,7 @@ export async function sendPaymentRequestEmail(
       total_amount: `$${Number(invoice.totalAmount).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
       due_date: invoice.dueDate,
       checkout_url: checkoutUrl,
+      etransfer_email: invoice.eTransferEmail || invoice.bankDetails?.eTransferEmail || DEFAULT_ETRANSFER_EMAIL,
       physical_address: festAddress,
       unsubscribe_url: `${window.location.origin}/?unsubscribe=${encodeURIComponent(app.email)}&scope=invoice`,
       application_id: app.id

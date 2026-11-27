@@ -13,10 +13,8 @@ import {
   ShieldCheck, 
   ChevronLeft, 
   ChevronRight,
-  Sparkles,
   FileText,
   WalletCards,
-  Coins,
   MapPin
 } from 'lucide-react';
 import { AdminTab } from '../../types';
@@ -57,14 +55,14 @@ export function AdminSidebar({
     },
     { 
       id: 'invoices', 
-      label: 'Invoices & Crypto Hub', 
+      label: 'Invoices & E-Transfer', 
       icon: FileText,
       badge: unpaidInvoicesCount && unpaidInvoicesCount > 0 ? unpaidInvoicesCount : undefined,
       badgeColor: 'bg-emerald-600 text-white'
     },
     { 
       id: 'payments', 
-      label: 'Payment & Wallets', 
+      label: 'E-Transfer Payment', 
       icon: WalletCards 
     },
     { 
@@ -121,20 +119,6 @@ export function AdminSidebar({
             {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>
         </div>
-
-        {/* Live sync pill badge */}
-        {!isCollapsed && (
-          <div className="px-4 py-2.5 mx-3 mt-3 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <span className="text-[11px] font-semibold text-emerald-300">Firestore Live Sync</span>
-            </div>
-            <span className="text-[10px] text-[#A09B8D] font-mono">europe-west1</span>
-          </div>
-        )}
 
         {/* Navigation items */}
         <nav className="p-3 space-y-1 mt-2">

@@ -26,20 +26,25 @@ import {
   Square,
   MinusSquare,
   Receipt,
-  ShieldCheck
+  ShieldCheck,
+  Copy,
+  KeyRound
 } from 'lucide-react';
 import { 
   VendorApplicationRecord, 
   ApplicationStatus, 
+  PaymentStatus,
   BoothId,
   PaymentConfig,
   SmtpConfigData,
   FestivalConfigData,
   Invoice,
-  VENDOR_KIND_OPTIONS
+  VENDOR_KIND_OPTIONS,
+  UNIFIED_VENDOR_CATEGORY_OPTIONS,
+  OTHER_VENDOR_CATEGORY_VALUE
 } from '../../../types';
 import { BOOTH_TIERS } from '../../../data/festivalData';
-import { saveInvoice } from '../../../lib/firebase';
+import { saveInvoice, DEFAULT_ETRANSFER_EMAIL, DEFAULT_ETRANSFER_INSTRUCTIONS } from '../../../lib/firebase';
 import { safeFetchJson } from '../../../lib/apiUtils';
 
 interface VendorApplicationsTabProps {
@@ -117,7 +122,7 @@ export function VendorApplicationsTab({
     phone: '',
     website: '',
     vendorKind: 'Certified Farmer',
-    category: 'Artisan Crafts & Handmade Goods',
+    category: 'Certified Farmer',
     selectedBoothId: 'tent-10x10' as BoothId,
     selectedDays: ['fri', 'sat', 'sun'] as Array<'fri' | 'sat' | 'sun'>,
     productDescription: '',
@@ -133,6 +138,7 @@ export function VendorApplicationsTab({
     boothZoneAssignment: 'Artisan Promenade Row',
     adminNotes: ''
   });
+  const [newFormCustomCategory, setNewFormCustomCategory] = useState('');
 
   const filteredApplications = useMemo(() => {
     return applications.filter((app) => {
@@ -245,16 +251,22 @@ export function VendorApplicationsTab({
           totalAmount: vendor.totalCalculatedFee || 275,
           paidAmount: 0,
           currency: 'USD',
-          notes: 'Space allocation invoice for Columbia Community Festival.',
-          terms: 'Payment is due within 14 days to lock reserved booth location.',
-          cryptoAddresses: {
-            usdtTrc20: paymentConfig?.usdtTrc20,
-            usdtErc20: paymentConfig?.usdtErc20,
-            usdtSolana: paymentConfig?.usdtSolana,
-            ethereumAddress: paymentConfig?.ethereumAddress,
-            bitcoinAddress: paymentConfig?.bitcoinAddress,
-            cashAppCashtag: paymentConfig?.cashAppCashtag,
-            krakenPayId: paymentConfig?.krakenPayId
+          notes: 'Space allocation invoice for Community Vendor Marketplace & Festival Expo.',
+          terms: 'Payment is processed via E-Transfer within 14 days to lock reserved booth location.',
+          eTransferEmail: paymentConfig?.eTransferEmail || DEFAULT_ETRANSFER_EMAIL,
+          paymentMethodsEnabled: {
+            eTransfer: true,
+            usdt: false,
+            ethereum: false,
+            bitcoin: false,
+            cashApp: false,
+            krakenPay: false,
+            bankTransfer: false
+          },
+          bankDetails: {
+            eTransferRecipientName: paymentConfig?.eTransferRecipientName || 'Festival Vendor Treasury',
+            eTransferEmail: paymentConfig?.eTransferEmail || DEFAULT_ETRANSFER_EMAIL,
+            paymentInstructions: paymentConfig?.eTransferInstructions || DEFAULT_ETRANSFER_INSTRUCTIONS
           },
           sentAt: now,
           checkoutUrl: `${window.location.origin}/?invoice=${invId}`,
@@ -326,7 +338,7 @@ export function VendorApplicationsTab({
     const headers = [
       'ID', 'Business Name', 'Contact Name', 'Email', 'Phone', 
       'Category', 'Booth Tier', 'Days', 'Calculated Fee', 'Status', 
-      'Zone Assignment', 'Payment Status', 'Created At'
+      'Zone Assignment', 'Payment Status', 'E-Transfer Security Answer', 'Created At'
     ];
 
     const rows = filteredApplications.map(a => [
@@ -342,6 +354,7 @@ export function VendorApplicationsTab({
       a.status,
       `"${a.boothZoneAssignment || ''}"`,
       a.paymentStatus || 'unpaid',
+      `"${(a.eTransferSecurityAnswer || '').replace(/"/g, '""')}"`,
       a.createdAt
     ]);
 
@@ -369,6 +382,19 @@ export function VendorApplicationsTab({
         return <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">Declined</span>;
       default:
         return <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-800">{status}</span>;
+    }
+  };
+
+  const getPaymentStatusBadge = (paymentStatus?: PaymentStatus) => {
+    switch (paymentStatus) {
+      case 'paid':
+        return <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">Paid</span>;
+      case 'pending':
+        return <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">Awaiting Verification</span>;
+      case 'waived':
+        return <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-100 text-sky-800 border border-sky-200">Waived</span>;
+      default:
+        return <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-stone-100 text-stone-700 border border-stone-200">Unpaid</span>;
     }
   };
 
@@ -510,7 +536,7 @@ export function VendorApplicationsTab({
                   <th className="py-3.5 px-4">Applied Space & Sessions</th>
                   <th className="py-3.5 px-4">Total Fee</th>
                   <th className="py-3.5 px-4">Review Status</th>
-                  <th className="py-3.5 px-4">Invoice & Crypto Billing</th>
+                  <th className="py-3.5 px-4">Payment Status &amp; E-Transfer</th>
                   <th className="py-3.5 px-4 text-right">Quick Actions</th>
                 </tr>
               </thead>
@@ -603,109 +629,151 @@ export function VendorApplicationsTab({
 
                       {/* Fee Calculated */}
                       <td className="py-3.5 px-4">
-                        <div className="font-extrabold text-[#3D3A30] text-sm">
+                        <div className="font-extrabold text-[#3D3A30] text-sm tabular-nums">
                           ${app.totalCalculatedFee || (booth ? booth.pricePerDay * app.selectedDays.length : 250)}
                         </div>
-                        <div className="text-[10px] text-[#8A8576]">
+                        <div className="text-[10px] text-[#8A8576] tabular-nums">
                           ${booth?.pricePerDay || 100}/day
                         </div>
                       </td>
 
                       {/* Review Status */}
                       <td className="py-3.5 px-4">
-                        {getStatusBadge(app.status)}
+                        <div className="flex flex-col items-start gap-1.5">
+                          {getStatusBadge(app.status)}
+                          <select
+                            value={app.status}
+                            aria-label={`Approval status for ${app.businessName}`}
+                            onChange={(e) => onUpdateStatus(app.id, { status: e.target.value as ApplicationStatus })}
+                            className="px-2 py-1 rounded-lg border border-[#E8E2D6] bg-[#FDFBF7] text-[10px] font-bold text-[#5A5A40] cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#5A5A40]/30"
+                          >
+                            <option value="pending">Pending Review</option>
+                            <option value="approved">Approved</option>
+                            <option value="waitlist">Waitlist</option>
+                            <option value="paid">Paid &amp; Confirmed</option>
+                            <option value="rejected">Declined</option>
+                          </select>
+                        </div>
                       </td>
 
-                      {/* Invoice & Crypto Billing Hub */}
+                      {/* Payment Status & E-Transfer Hub */}
                       <td className="py-3.5 px-4">
-                        {matchingInv ? (
-                          <div className="flex flex-col gap-1.5">
-                            {/* Status Tag */}
-                            <div className="flex items-center gap-1.5">
-                              {matchingInv.status === 'paid' && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-bold">
-                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                  <span>Paid ${matchingInv.totalAmount}</span>
-                                </span>
-                              )}
-                              {matchingInv.status === 'under_review' && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-300 text-[10px] font-bold animate-pulse">
-                                  <Sparkles className="w-3 h-3 text-purple-600" />
-                                  <span>Proof Submitted (${matchingInv.totalAmount})</span>
-                                </span>
-                              )}
-                              {matchingInv.status === 'sent' && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 border border-sky-300 text-[10px] font-bold">
-                                  <Send className="w-3 h-3 text-sky-600" />
-                                  <span>Invoiced ${matchingInv.totalAmount}</span>
-                                </span>
-                              )}
-                              {matchingInv.status === 'draft' && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-bold">
-                                  <Clock className="w-3 h-3 text-amber-600" />
-                                  <span>Draft ${matchingInv.totalAmount}</span>
-                                </span>
-                              )}
-                            </div>
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {getPaymentStatusBadge(app.paymentStatus)}
+                            <select
+                              value={app.paymentStatus || 'unpaid'}
+                              aria-label={`Payment status for ${app.businessName}`}
+                              onChange={(e) => {
+                                const nextPay = e.target.value as PaymentStatus;
+                                onUpdateStatus(app.id, {
+                                  paymentStatus: nextPay,
+                                  ...(nextPay === 'paid' && app.status === 'pending' ? { status: 'approved' } : {})
+                                });
+                              }}
+                              className="px-2 py-0.5 rounded-lg border border-[#E8E2D6] bg-white text-[10px] font-bold text-[#3D3A30] cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#5A5A40]/30"
+                            >
+                              <option value="unpaid">Unpaid</option>
+                              <option value="pending">Pending Verify</option>
+                              <option value="paid">Paid</option>
+                              <option value="waived">Waived</option>
+                            </select>
+                          </div>
 
-                            {/* Action Buttons for Existing Invoice */}
-                            <div className="flex items-center gap-1">
+                          {app.eTransferSecurityAnswer && (
+                            <button
+                              type="button"
+                              onClick={() => onSelectAppForModal(app)}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-[10px] font-bold text-left max-w-[200px] truncate cursor-pointer"
+                              title={`E-Transfer Security Answer: ${app.eTransferSecurityAnswer}`}
+                            >
+                              <KeyRound className="w-3 h-3 text-amber-700 shrink-0" />
+                              <span className="truncate">Answer: {app.eTransferSecurityAnswer}</span>
+                            </button>
+                          )}
+
+                          {matchingInv ? (
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-1">
+                                {matchingInv.status === 'paid' && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-bold tabular-nums">
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                    <span>Invoice Paid ${matchingInv.totalAmount}</span>
+                                  </span>
+                                )}
+                                {matchingInv.status === 'under_review' && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-bold tabular-nums">
+                                    <KeyRound className="w-3 h-3 text-amber-700" />
+                                    <span>E-Transfer Submitted (${matchingInv.totalAmount})</span>
+                                  </span>
+                                )}
+                                {matchingInv.status === 'sent' && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 border border-sky-300 text-[10px] font-bold tabular-nums">
+                                    <Send className="w-3 h-3 text-sky-600" />
+                                    <span>Invoiced ${matchingInv.totalAmount}</span>
+                                  </span>
+                                )}
+                                {matchingInv.status === 'draft' && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-stone-100 text-stone-800 border border-stone-300 text-[10px] font-bold tabular-nums">
+                                    <Clock className="w-3 h-3 text-stone-600" />
+                                    <span>Draft ${matchingInv.totalAmount}</span>
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-1">
+                                {onOpenInvoiceModal && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onOpenInvoiceModal(app)}
+                                    className="px-2 py-1 rounded bg-[#F7F5EE] hover:bg-[#EAE4D6] text-[#5A5A40] border border-[#E8E2D6] text-[10px] font-bold flex items-center gap-1 transition-colors"
+                                    title="Edit / Resend Invoice"
+                                  >
+                                    <Receipt className="w-3 h-3" />
+                                    <span>Invoice</span>
+                                  </button>
+                                )}
+
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleCopyInvoiceLink(matchingInv, e)}
+                                  className={`px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 transition-colors border ${
+                                    copiedInvoiceId === matchingInv.id 
+                                      ? 'bg-emerald-600 text-white border-emerald-600' 
+                                      : 'bg-white hover:bg-[#FAF8F5] text-[#6B6658] border-[#E8E2D6]'
+                                  }`}
+                                  title="Copy direct E-Transfer checkout link"
+                                >
+                                  <span>{copiedInvoiceId === matchingInv.id ? '✓ Copied' : 'Link'}</span>
+                                </button>
+
+                                <a
+                                  href={matchingInv.checkoutUrl || `${window.location.origin}/?invoice=${matchingInv.id}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="p-1 rounded bg-white hover:bg-[#FAF8F5] text-[#8A8576] hover:text-[#3D3A30] border border-[#E8E2D6]"
+                                  title="Open Vendor E-Transfer Checkout"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              </div>
+                            </div>
+                          ) : (
+                            <div>
                               {onOpenInvoiceModal && (
                                 <button
                                   type="button"
                                   onClick={() => onOpenInvoiceModal(app)}
-                                  className="px-2 py-1 rounded bg-[#F7F5EE] hover:bg-[#EAE4D6] text-[#5A5A40] border border-[#E8E2D6] text-[10px] font-bold flex items-center gap-1 transition-colors"
-                                  title="Edit / Resend Invoice"
+                                  className="group px-2.5 py-1.5 rounded-xl bg-[#5A5A40] hover:bg-[#464632] text-white text-[10px] font-bold flex items-center gap-1.5 transition-all shadow-xs"
+                                  title="Generate E-Transfer payment invoice"
                                 >
-                                  <Receipt className="w-3 h-3" />
-                                  <span>Invoice</span>
+                                  <Receipt className="w-3 h-3 text-emerald-300" />
+                                  <span className="tabular-nums">Issue E-Transfer Invoice (${app.totalCalculatedFee || (booth ? booth.pricePerDay * app.selectedDays.length : 250)})</span>
                                 </button>
                               )}
-
-                              <button
-                                type="button"
-                                onClick={(e) => handleCopyInvoiceLink(matchingInv, e)}
-                                className={`px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 transition-colors border ${
-                                  copiedInvoiceId === matchingInv.id 
-                                    ? 'bg-emerald-600 text-white border-emerald-600' 
-                                    : 'bg-white hover:bg-[#FAF8F5] text-[#6B6658] border-[#E8E2D6]'
-                                }`}
-                                title="Copy direct checkout link to send via chat/SMS/email"
-                              >
-                                <span>{copiedInvoiceId === matchingInv.id ? '✓ Copied' : '🔗 Link'}</span>
-                              </button>
-
-                              <a
-                                href={matchingInv.checkoutUrl || `${window.location.origin}/?invoice=${matchingInv.id}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="p-1 rounded bg-white hover:bg-[#FAF8F5] text-[#8A8576] hover:text-[#3D3A30] border border-[#E8E2D6]"
-                                title="Open Vendor Checkout View"
-                              >
-                                <ExternalLink className="w-3 h-3" />
-                              </a>
                             </div>
-                          </div>
-                        ) : (
-                          <div>
-                            {onOpenInvoiceModal && (
-                              <button
-                                type="button"
-                                onClick={() => onOpenInvoiceModal(app)}
-                                className="group px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#5A5A40] to-[#464632] text-white hover:opacity-95 text-[11px] font-bold flex flex-col items-start gap-0.5 transition-all shadow-xs"
-                                title="Generate custom payment invoice with crypto wallets"
-                              >
-                                <div className="flex items-center gap-1.5">
-                                  <Receipt className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform" />
-                                  <span>Issue Invoice (${app.totalCalculatedFee || (booth ? booth.pricePerDay * app.selectedDays.length : 250)})</span>
-                                </div>
-                                <span className="text-[9px] text-white/70 font-normal">
-                                  {booth?.name?.split(' ')[0] || 'Space'} &bull; {app.selectedDays.length}d &bull; Crypto/Fiat
-                                </span>
-                              </button>
-                            )}
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </td>
 
                       {/* Quick Actions */}
@@ -811,7 +879,7 @@ export function VendorApplicationsTab({
             </div>
 
             <p className="text-xs text-[#7A7566]">
-              This will automatically generate itemized invoices, assign custom checkout links with configured crypto wallets (USDT, ETH, BTC, CashApp, Kraken), and dispatch official email notifications to all selected vendors.
+              This will automatically generate itemized invoices, assign direct E-Transfer checkout links ({paymentConfig?.eTransferEmail || DEFAULT_ETRANSFER_EMAIL}), and dispatch official email notifications to all selected vendors.
             </p>
 
             <div className="max-h-48 overflow-y-auto border border-[#E8E2D6] rounded-xl p-2 bg-[#FAF8F5] space-y-1.5 text-xs">
@@ -932,10 +1000,100 @@ export function VendorApplicationsTab({
                       className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
                     >
                       <Receipt className="w-3.5 h-3.5" />
-                      <span>Issue Invoice (${selectedAppForModal.totalCalculatedFee || 250})</span>
+                      <span>Issue E-Transfer Invoice (${selectedAppForModal.totalCalculatedFee || 250})</span>
                     </button>
                   )}
                 </div>
+              </div>
+
+              {/* E-Transfer Verification & Payment Status Control */}
+              <div className="p-4 rounded-2xl bg-[#FAF8F5] border border-[#E8E2D6] space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <KeyRound className="w-4 h-4 text-[#5A5A40]" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#3D3A30]">
+                      E-Transfer Verification &amp; Payment Status
+                    </span>
+                  </div>
+                  {getPaymentStatusBadge(selectedAppForModal.paymentStatus)}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {(['unpaid', 'pending', 'paid', 'waived'] as PaymentStatus[]).map((ps) => (
+                    <button
+                      key={ps}
+                      type="button"
+                      onClick={() =>
+                        onUpdateStatus(selectedAppForModal.id, {
+                          paymentStatus: ps,
+                          ...(ps === 'paid' && selectedAppForModal.status === 'pending' ? { status: 'approved' } : {})
+                        })
+                      }
+                      className={`px-3 py-1.5 rounded-xl font-bold capitalize text-xs transition-colors cursor-pointer ${
+                        (selectedAppForModal.paymentStatus || 'unpaid') === ps
+                          ? 'bg-[#3D3A30] text-white shadow-xs'
+                          : 'bg-white text-[#6B6658] border border-[#E8E2D6] hover:bg-[#EAE4D6]'
+                      }`}
+                    >
+                      {ps === 'pending' ? 'Pending Verification' : ps}
+                    </button>
+                  ))}
+                </div>
+
+                {selectedAppForModal.eTransferSecurityAnswer ? (
+                  <div className="p-3.5 rounded-xl bg-amber-50/80 border border-amber-200 space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-amber-900">
+                        Submitted E-Transfer Security Answer / Confirmation Details
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(selectedAppForModal.eTransferSecurityAnswer || '');
+                          showToast('Copied E-Transfer security answer!');
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-white border border-amber-300 text-amber-900 text-[11px] font-bold inline-flex items-center gap-1 hover:bg-amber-100 cursor-pointer"
+                      >
+                        <Copy className="w-3 h-3" />
+                        <span>Copy</span>
+                      </button>
+                    </div>
+                    <div className="p-2.5 rounded-lg bg-white border border-amber-200 font-mono text-xs text-[#3D3A30] break-words">
+                      {selectedAppForModal.eTransferSecurityAnswer}
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#7A7566]">
+                      <div>
+                        {selectedAppForModal.eTransferPayerEmail && (
+                          <span>Sender Email: <strong className="text-[#3D3A30]">{selectedAppForModal.eTransferPayerEmail}</strong></span>
+                        )}
+                        {selectedAppForModal.eTransferSubmittedAt && (
+                          <span className="ml-2">&bull; Submitted {new Date(selectedAppForModal.eTransferSubmittedAt).toLocaleString()}</span>
+                        )}
+                      </div>
+                      {selectedAppForModal.paymentStatus !== 'paid' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onUpdateStatus(selectedAppForModal.id, {
+                              paymentStatus: 'paid',
+                              status: selectedAppForModal.status === 'pending' ? 'approved' : selectedAppForModal.status
+                            });
+                            showToast(`Confirmed E-Transfer payment for ${selectedAppForModal.businessName}!`);
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Confirm &amp; Mark Paid via E-Transfer</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-xs text-[#7A7566] italic">
+                    No E-Transfer security question answer submitted yet. Recipient address shown to vendors:{' '}
+                    <strong className="text-[#3D3A30] not-italic">{paymentConfig?.eTransferEmail || DEFAULT_ETRANSFER_EMAIL}</strong>.
+                  </div>
+                )}
               </div>
 
               {/* Inbuilt Email Notification Dispatcher (Internal SMTP) */}
@@ -1079,21 +1237,21 @@ export function VendorApplicationsTab({
                 </div>
               </div>
 
-              {/* Invoice & Crypto Settlement Card */}
+              {/* Invoice & E-Transfer Settlement Card */}
               {(() => {
                 const inv = getMatchingInvoice(selectedAppForModal);
                 return (
                   <div className="p-4 rounded-2xl bg-gradient-to-br from-[#FAF8F5] to-[#F2EFE9] border border-[#E8E2D6] space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Coins className="w-4 h-4 text-[#5A5A40]" />
-                        <span className="font-bold text-xs uppercase tracking-wider text-[#3D3A30]">Invoice & Crypto Payment Hub</span>
+                        <Mail className="w-4 h-4 text-[#5A5A40]" />
+                        <span className="font-bold text-xs uppercase tracking-wider text-[#3D3A30]">Invoice &amp; E-Transfer Settlement</span>
                       </div>
                       {inv ? (
                         <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold capitalize ${
                           inv.status === 'paid' ? 'bg-emerald-100 text-emerald-800' :
-                          inv.status === 'under_review' ? 'bg-purple-100 text-purple-800' :
-                          inv.status === 'sent' ? 'bg-sky-100 text-sky-800' : 'bg-amber-100 text-amber-800'
+                          inv.status === 'under_review' ? 'bg-amber-100 text-amber-900' :
+                          inv.status === 'sent' ? 'bg-sky-100 text-sky-800' : 'bg-stone-100 text-stone-800'
                         }`}>
                           Invoice {inv.invoiceNumber} &bull; {inv.status.replace('_', ' ')}
                         </span>
@@ -1107,11 +1265,11 @@ export function VendorApplicationsTab({
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                           <div className="p-2 bg-white rounded-lg border border-[#E8E2D6]">
                             <div className="text-[10px] text-[#8A8576]">Amount Due</div>
-                            <div className="font-bold text-[#3D3A30]">${inv.totalAmount} {inv.currency}</div>
+                            <div className="font-bold text-[#3D3A30] tabular-nums">${inv.totalAmount} {inv.currency}</div>
                           </div>
                           <div className="p-2 bg-white rounded-lg border border-[#E8E2D6]">
                             <div className="text-[10px] text-[#8A8576]">Amount Paid</div>
-                            <div className="font-bold text-emerald-700">${inv.paidAmount || 0}</div>
+                            <div className="font-bold text-emerald-700 tabular-nums">${inv.paidAmount || 0}</div>
                           </div>
                           <div className="p-2 bg-white rounded-lg border border-[#E8E2D6]">
                             <div className="text-[10px] text-[#8A8576]">Due Date</div>
@@ -1125,28 +1283,33 @@ export function VendorApplicationsTab({
 
                         {/* If payment proof was submitted */}
                         {inv.paymentDetailsSubmitted && (
-                          <div className="p-3 bg-purple-50 rounded-xl border border-purple-200 text-xs space-y-1">
-                            <div className="font-bold text-purple-950 flex items-center gap-1.5">
-                              <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-                              <span>Crypto / CashApp Settlement Proof Submitted:</span>
+                          <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs space-y-1">
+                            <div className="font-bold text-amber-950 flex items-center gap-1.5">
+                              <KeyRound className="w-3.5 h-3.5 text-amber-700" />
+                              <span>E-Transfer Confirmation Details Submitted:</span>
                             </div>
                             <div className="text-[#3D3A30]">
                               <strong>Method:</strong> {inv.paymentDetailsSubmitted.method?.toUpperCase()} &bull; 
                               <strong> Amount:</strong> ${inv.paymentDetailsSubmitted.paidAmount || inv.totalAmount} {inv.paymentDetailsSubmitted.paidCurrency || inv.currency}
                             </div>
+                            {inv.paymentDetailsSubmitted.eTransferSecurityAnswer && (
+                              <div className="font-mono text-[11px] text-amber-950 break-words">
+                                <strong>Security Answer:</strong> {inv.paymentDetailsSubmitted.eTransferSecurityAnswer}
+                              </div>
+                            )}
                             {inv.paymentDetailsSubmitted.txHash && (
-                              <div className="font-mono text-[11px] text-purple-900 break-all">
-                                <strong>Tx Hash:</strong> {inv.paymentDetailsSubmitted.txHash}
+                              <div className="font-mono text-[11px] text-amber-900 break-all">
+                                <strong>Confirmation / Ref:</strong> {inv.paymentDetailsSubmitted.txHash}
                               </div>
                             )}
                             {inv.paymentDetailsSubmitted.payerWalletOrHandle && (
-                              <div className="font-mono text-[11px] text-purple-900 break-all">
-                                <strong>Payer / Wallet:</strong> {inv.paymentDetailsSubmitted.payerWalletOrHandle}
+                              <div className="font-mono text-[11px] text-amber-900 break-all">
+                                <strong>Sender Email:</strong> {inv.paymentDetailsSubmitted.payerWalletOrHandle}
                               </div>
                             )}
                             {inv.paymentDetailsSubmitted.proofNote && (
-                              <div className="text-[11px] text-purple-800 italic">
-                                "{inv.paymentDetailsSubmitted.proofNote}"
+                              <div className="text-[11px] text-amber-900 italic">
+                                &ldquo;{inv.paymentDetailsSubmitted.proofNote}&rdquo;
                               </div>
                             )}
                           </div>
@@ -1173,7 +1336,7 @@ export function VendorApplicationsTab({
                             onClick={(e) => handleCopyInvoiceLink(inv, e)}
                             className="px-3 py-1.5 rounded-xl bg-white hover:bg-[#FAF8F5] text-[#3D3A30] border border-[#E8E2D6] text-xs font-bold flex items-center gap-1.5"
                           >
-                            <span>{copiedInvoiceId === inv.id ? '✓ Copied Link' : '🔗 Copy Checkout Link'}</span>
+                            <span>{copiedInvoiceId === inv.id ? '✓ Copied Link' : 'Copy Checkout Link'}</span>
                           </button>
 
                           <a
@@ -1183,14 +1346,14 @@ export function VendorApplicationsTab({
                             className="px-3 py-1.5 rounded-xl bg-white hover:bg-[#FAF8F5] text-[#5A5A40] border border-[#E8E2D6] text-xs font-bold flex items-center gap-1.5 inline-flex"
                           >
                             <ExternalLink className="w-3.5 h-3.5" />
-                            <span>Preview Checkout Portal</span>
+                            <span>Preview E-Transfer Checkout</span>
                           </a>
                         </div>
                       </div>
                     ) : (
                       <div className="flex items-center justify-between pt-1">
                         <div className="text-xs text-[#7A7566]">
-                          Generate an official payment invoice configured with USDT, ETH, BTC, CashApp & Kraken.
+                          Generate an official E-Transfer invoice directed to {paymentConfig?.eTransferEmail || DEFAULT_ETRANSFER_EMAIL}.
                         </div>
                         {onOpenInvoiceModal && (
                           <button
@@ -1297,7 +1460,18 @@ export function VendorApplicationsTab({
             <form 
               onSubmit={(e) => {
                 e.preventDefault();
-                onCreateApplication(newForm);
+                const isOther =
+                  newForm.vendorKind === OTHER_VENDOR_CATEGORY_VALUE ||
+                  newForm.category === OTHER_VENDOR_CATEGORY_VALUE;
+                const resolvedType = isOther
+                  ? (newFormCustomCategory.trim() || 'Custom Vendor')
+                  : newForm.vendorKind;
+                onCreateApplication({
+                  ...newForm,
+                  vendorKind: resolvedType,
+                  category: resolvedType
+                });
+                setNewFormCustomCategory('');
                 onSetCreateModalOpen(false);
               }}
               className="p-6 space-y-4 text-xs"
@@ -1351,12 +1525,12 @@ export function VendorApplicationsTab({
                 <label className="block font-bold text-[#7A7566] mb-1">What Kind Of Vendor Are You? *</label>
                 <select
                   value={newForm.vendorKind}
-                  onChange={(e) => setNewForm({ ...newForm, vendorKind: e.target.value })}
+                  onChange={(e) => setNewForm({ ...newForm, vendorKind: e.target.value, category: e.target.value })}
                   className="w-full px-3 py-2 rounded-xl border border-[#E8E2D6]"
                 >
-                  {VENDOR_KIND_OPTIONS.map((kind) => (
+                  {UNIFIED_VENDOR_CATEGORY_OPTIONS.map((kind) => (
                     <option key={kind} value={kind}>
-                      {kind}
+                      {kind === OTHER_VENDOR_CATEGORY_VALUE ? 'Other (Specify custom vendor type)' : kind}
                     </option>
                   ))}
                 </select>
@@ -1364,17 +1538,17 @@ export function VendorApplicationsTab({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-[#7A7566] mb-1">Category</label>
+                  <label className="block font-bold text-[#7A7566] mb-1">Marketplace Category *</label>
                   <select
                     value={newForm.category}
-                    onChange={(e) => setNewForm({ ...newForm, category: e.target.value })}
+                    onChange={(e) => setNewForm({ ...newForm, vendorKind: e.target.value, category: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl border border-[#E8E2D6]"
                   >
-                    <option value="Artisan Crafts & Handmade Goods">Artisan Crafts & Handmade</option>
-                    <option value="Jewelry & Metalsmithing">Jewelry & Metalsmithing</option>
-                    <option value="Culinary, Baked Goods & Spices">Culinary, Baked Goods & Spices</option>
-                    <option value="Beauty & Wellness">Beauty & Wellness</option>
-                    <option value="Home Goods, Ceramics & Woodcraft">Home Goods, Ceramics & Woodcraft</option>
+                    {UNIFIED_VENDOR_CATEGORY_OPTIONS.map((kind) => (
+                      <option key={kind} value={kind}>
+                        {kind === OTHER_VENDOR_CATEGORY_VALUE ? 'Other (Specify custom category)' : kind}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -1395,6 +1569,21 @@ export function VendorApplicationsTab({
                   </select>
                 </div>
               </div>
+
+              {(newForm.vendorKind === OTHER_VENDOR_CATEGORY_VALUE || newForm.category === OTHER_VENDOR_CATEGORY_VALUE) && (
+                <div>
+                  <label className="block font-bold text-[#5A5A40] mb-1">Custom Vendor Type / Category *</label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={90}
+                    placeholder="Enter custom vendor type or category..."
+                    value={newFormCustomCategory}
+                    onChange={(e) => setNewFormCustomCategory(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-[#5A5A40]"
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block font-bold text-[#7A7566] mb-1">Product Description</label>

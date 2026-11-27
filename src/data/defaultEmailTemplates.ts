@@ -4,10 +4,10 @@ export const DEFAULT_EMAIL_TEMPLATES: EmailTemplateData[] = [
   {
     id: 'tmpl-vendor-invoice',
     key: 'vendor_invoice_official',
-    title: 'Official Vendor Space & Equipment Invoice',
+    title: 'Official Vendor Space & Equipment Invoice (E-Transfer)',
     category: 'vendor',
     subject: 'Official Invoice {{invoice_number}} - {{business_name}} at {{festival_name}}',
-    previewText: 'Your official vendor space invoice #{{invoice_number}} is ready. Pay online via Crypto, CashApp, Kraken, or Bank.',
+    previewText: 'Your official vendor booth invoice #{{invoice_number}} is ready. Send booth payment via E-Transfer to {{etransfer_email}}.',
     dynamicVariables: [
       '{{contact_name}}',
       '{{business_name}}',
@@ -15,6 +15,7 @@ export const DEFAULT_EMAIL_TEMPLATES: EmailTemplateData[] = [
       '{{total_amount}}',
       '{{due_date}}',
       '{{checkout_url}}',
+      '{{etransfer_email}}',
       '{{festival_name}}',
       '{{location}}',
       '{{physical_address}}',
@@ -27,7 +28,7 @@ export const DEFAULT_EMAIL_TEMPLATES: EmailTemplateData[] = [
       'Explicit physical business mailing address in footer',
       'One-click unsubscribe and communication preference links',
       'Transactional non-spam trigger wording',
-      'Secure checkout URL link without deceptive masking'
+      'Clear E-Transfer payment and verification instructions'
     ],
     isCustom: false,
     plainTextBody: `OFFICIAL VENDOR INVOICE - {{festival_name}}
@@ -37,14 +38,19 @@ Recipient: {{contact_name}} ({{business_name}})
 Due Date: {{due_date}}
 Total Amount Due: {{total_amount}} USD
 
-SECURE PAYMENT PORTAL:
-{{checkout_url}}
+BOOTH PAYMENT INSTRUCTIONS (E-TRANSFER):
+Payments for booth reservations are processed through E-Transfer.
 
-Accepted Payment Methods:
-- Multi-Chain Crypto: USDT (TRC-20 / ERC-20 / Solana), Ethereum, Bitcoin & Lightning
-- Mobile Payment: CashApp Cashtag
-- Sponsor Portal: Kraken Pay ID
-- Traditional: Bank Wire Transfer & Zelle
+Please send your E-Transfer payment to:
+
+{{etransfer_email}}
+
+After completing your payment, kindly send us the answer to your security question (or confirmation details if no security question is required) so we can verify your payment and confirm your booth reservation.
+
+Thank you, and we look forward to having you at the event.
+
+SUBMIT SECURITY ANSWER / VIEW INVOICE ONLINE:
+{{checkout_url}}
 
 TERMS & POLICIES:
 Payment is required by {{due_date}} to guarantee designated space allocation.
@@ -83,7 +89,7 @@ Unsubscribe / Manage Preferences: {{unsubscribe_url}}`,
                 Dear <strong>{{contact_name}}</strong> ({{business_name}}),
               </p>
               <p style="margin: 0 0 20px 0; font-size: 14px; color: #5A5A40; line-height: 1.6;">
-                Thank you for your vendor participation. Your space allocation and equipment invoice has been issued and is available for payment below.
+                Thank you for your vendor participation. Your space allocation invoice has been issued and can be settled via E-Transfer using the details below.
               </p>
 
               <!-- Payment Summary Table -->
@@ -116,23 +122,31 @@ Unsubscribe / Manage Preferences: {{unsubscribe_url}}`,
                 </tr>
               </table>
 
-              <!-- CTA Checkout Box -->
+              <!-- E-Transfer Instructions & Checkout CTA Box -->
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #FAF8F5; border: 1px dashed #5A5A40; border-radius: 12px; margin: 24px 0;">
                 <tr>
-                  <td style="padding: 20px; text-align: center;">
-                    <h3 style="margin: 0 0 8px 0; font-size: 15px; font-weight: 700; color: #3D3A30;">Accepted Payment Methods</h3>
-                    <p style="margin: 0 0 16px 0; font-size: 12px; color: #7A7566;">
-                      Crypto (USDT / ETH / BTC), CashApp, Kraken Sponsor Portal, or Bank Wire
+                  <td style="padding: 22px; text-align: left;">
+                    <h3 style="margin: 0 0 10px 0; font-size: 15px; font-weight: 700; color: #3D3A30;">E-Transfer Payment Instructions</h3>
+                    <p style="margin: 0 0 10px 0; font-size: 13px; color: #5A5A40; line-height: 1.6;">
+                      Payments for booth reservations are processed through E-Transfer. Please send your E-Transfer payment to:
                     </p>
-                    <a href="{{checkout_url}}" style="display: inline-block; background-color: #5A5A40; color: #FFFFFF; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-size: 14px; font-weight: 700;">
-                      Open Secure Payment Checkout &rarr;
-                    </a>
+                    <div style="background-color: #FFFFFF; border: 1px solid #E8E2D6; border-radius: 8px; padding: 10px 14px; font-family: monospace; font-size: 14px; font-weight: 700; color: #3D3A30; margin-bottom: 12px;">
+                      {{etransfer_email}}
+                    </div>
+                    <p style="margin: 0 0 18px 0; font-size: 13px; color: #5A5A40; line-height: 1.6;">
+                      After completing your payment, kindly send us the answer to your security question (or confirmation details if no security question is required) so we can verify your payment and confirm your booth reservation.
+                    </p>
+                    <div style="text-align: center;">
+                      <a href="{{checkout_url}}" style="display: inline-block; background-color: #5A5A40; color: #FFFFFF; text-decoration: none; padding: 14px 28px; border-radius: 10px; font-size: 14px; font-weight: 700;">
+                        Submit Security Answer &amp; View Invoice &rarr;
+                      </a>
+                    </div>
                   </td>
                 </tr>
               </table>
 
               <p style="margin: 16px 0 0 0; font-size: 12px; color: #7A7566; line-height: 1.5;">
-                For accounting or wire settlement questions, reply directly to <a href="mailto:{{contact_email}}" style="color: #5A5A40; font-weight: 700;">{{contact_email}}</a>.
+                Thank you, and we look forward to having you at the event. For questions, reply to <a href="mailto:{{contact_email}}" style="color: #5A5A40; font-weight: 700;">{{contact_email}}</a>.
               </p>
             </td>
           </tr>
@@ -166,16 +180,19 @@ Unsubscribe / Manage Preferences: {{unsubscribe_url}}`,
   {
     id: 'tmpl-app-received',
     key: 'vendor_app_received',
-    title: 'Vendor Application Received & In Review',
+    title: 'Vendor Application Received & E-Transfer Instructions',
     category: 'vendor',
     subject: 'Application Received: {{business_name}} at {{festival_name}} [Ref: #{{application_id}}]',
-    previewText: 'We have received your vendor application for {{festival_name}}. Here is what happens next.',
+    previewText: 'We received your vendor application for {{festival_name}}. Complete your E-Transfer reservation details inside.',
     dynamicVariables: [
       '{{contact_name}}',
       '{{business_name}}',
       '{{application_id}}',
       '{{booth_type}}',
       '{{days_requested}}',
+      '{{total_fee}}',
+      '{{etransfer_email}}',
+      '{{payment_link}}',
       '{{festival_name}}',
       '{{location}}',
       '{{contact_email}}',
@@ -186,7 +203,7 @@ Unsubscribe / Manage Preferences: {{unsubscribe_url}}`,
       'Includes clear sender identity and organizational physical footer',
       'Balanced text-to-HTML markup with accessible typography',
       'Preheader text included for inbox previews',
-      'Direct link to check application status without aggressive promotional words'
+      'Direct E-Transfer tracking details without aggressive promotional words'
     ],
     isCustom: false,
     plainTextBody: `Hello {{contact_name}},
@@ -196,12 +213,20 @@ Thank you for submitting your vendor application for {{business_name}} to exhibi
 Application Reference: #{{application_id}}
 Booth Space Requested: {{booth_type}}
 Session(s): {{days_requested}}
+Total Booth Fee: {{total_fee}}
 Location: {{location}}
 
-WHAT HAPPENS NEXT:
-Our vendor curation jury reviews applications on a rolling basis. You can expect a status notification and booth placement confirmation within 3-5 business days.
+E-TRANSFER BOOTH PAYMENT INSTRUCTIONS:
+Payments for booth reservations are processed through E-Transfer.
 
-If you have any urgent questions or need to submit updated certificates, please reply directly to {{contact_email}}.
+Please send your E-Transfer payment to:
+
+{{etransfer_email}}
+
+After completing your payment, kindly send us the answer to your security question (or confirmation details if no security question is required) via our vendor tracker dialog or reply email so we can verify your payment and confirm your booth reservation:
+{{payment_link}}
+
+Thank you, and we look forward to having you at the event.
 
 Warm regards,
 {{festival_name}} Organizer Team
@@ -243,7 +268,7 @@ To manage notification preferences, contact {{contact_email}}.`,
                 Hello <strong>{{contact_name}}</strong>,
               </p>
               <p style="font-size: 15px; line-height: 1.6; color: #6B6658; margin: 0 0 24px 0;">
-                Thank you for applying to showcase <strong>{{business_name}}</strong> at this year's <strong>{{festival_name}}</strong>. We have successfully logged your registration details.
+                Thank you for applying to showcase <strong>{{business_name}}</strong> at <strong>{{festival_name}}</strong>. We have logged your application and booth selection below.
               </p>
 
               <!-- Application Summary Box -->
@@ -272,6 +297,10 @@ To manage notification preferences, contact {{contact_email}}.`,
                         <td style="font-weight: 600;">{{days_requested}}</td>
                       </tr>
                       <tr>
+                        <td style="color: #6B6658; font-weight: 500;">Booth Fee:</td>
+                        <td style="font-weight: 700; color: #5A5A40;">{{total_fee}}</td>
+                      </tr>
+                      <tr>
                         <td style="color: #6B6658; font-weight: 500;">Festival Grounds:</td>
                         <td style="font-weight: 600;">{{location}}</td>
                       </tr>
@@ -280,17 +309,27 @@ To manage notification preferences, contact {{contact_email}}.`,
                 </tr>
               </table>
 
-              <h3 style="font-size: 16px; font-weight: 700; color: #3D3A30; margin: 0 0 12px 0;">
-                Next Steps in the Review Process
-              </h3>
-              <ol style="font-size: 14px; line-height: 1.7; color: #6B6658; margin: 0 0 24px 0; padding-left: 20px;">
-                <li><strong>Curation Review:</strong> Our jury reviews vendor submissions to ensure category balance and compliance.</li>
-                <li><strong>Approval Notice:</strong> You will receive an official acceptance notice with your assigned zone and fee invoice within 3-5 business days.</li>
-                <li><strong>Load-In Details:</strong> Final vehicle pass details and morning load-in schedules will be sent prior to the event.</li>
-              </ol>
+              <!-- E-Transfer Booth Payment Card -->
+              <div style="background-color: #FAF8F5; border: 1px dashed #5A5A40; border-radius: 12px; padding: 18px 20px; margin-bottom: 24px;">
+                <h3 style="font-size: 15px; font-weight: 700; color: #3D3A30; margin: 0 0 8px 0;">
+                  Booth Payment via E-Transfer
+                </h3>
+                <p style="font-size: 13.5px; line-height: 1.6; color: #5A5A40; margin: 0 0 10px 0;">
+                  Payments for booth reservations are processed through E-Transfer. Please send your E-Transfer payment to:
+                </p>
+                <div style="background-color: #FFFFFF; border: 1px solid #E8E2D6; border-radius: 8px; padding: 10px 14px; font-family: monospace; font-size: 14px; font-weight: 700; color: #3D3A30; margin-bottom: 10px;">
+                  {{etransfer_email}}
+                </div>
+                <p style="font-size: 13.5px; line-height: 1.6; color: #5A5A40; margin: 0 0 14px 0;">
+                  After completing your payment, kindly send us the answer to your security question (or confirmation details if no security question is required) so we can verify your payment and confirm your booth reservation.
+                </p>
+                <a href="{{payment_link}}" style="display: inline-block; background-color: #5A5A40; color: #FFFFFF; text-decoration: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 700;">
+                  Track Application &amp; Submit Security Answer &rarr;
+                </a>
+              </div>
 
-              <p style="font-size: 14px; line-height: 1.6; color: #6B6658; margin: 0 0 24px 0;">
-                If you need to update any application details or submit insurance/food handler certificates, please reach out to our team at <a href="mailto:{{contact_email}}" style="color: #5A5A40; font-weight: 700; text-decoration: underline;">{{contact_email}}</a>.
+              <p style="font-size: 14px; line-height: 1.6; color: #6B6658; margin: 0;">
+                Thank you, and we look forward to having you at the event. Questions? Email <a href="mailto:{{contact_email}}" style="color: #5A5A40; font-weight: 700; text-decoration: underline;">{{contact_email}}</a>.
               </p>
             </td>
           </tr>
@@ -318,10 +357,10 @@ To manage notification preferences, contact {{contact_email}}.`,
   {
     id: 'tmpl-app-approved',
     key: 'vendor_app_approved',
-    title: 'Vendor Approval & Booth Reservation',
+    title: 'Vendor Approval & E-Transfer Booth Reservation',
     category: 'vendor',
-    subject: '🎉 Congratulations! Your booth for {{business_name}} is APPROVED - {{festival_name}}',
-    previewText: 'Your application has been accepted! Review your assigned zone, fee breakdown, and load-in instructions.',
+    subject: 'Congratulations! Your booth for {{business_name}} is APPROVED - {{festival_name}}',
+    previewText: 'Your application has been accepted! Review your assigned zone and E-Transfer booth settlement instructions.',
     dynamicVariables: [
       '{{contact_name}}',
       '{{business_name}}',
@@ -330,6 +369,7 @@ To manage notification preferences, contact {{contact_email}}.`,
       '{{zone_assignment}}',
       '{{days_approved}}',
       '{{total_fee}}',
+      '{{etransfer_email}}',
       '{{festival_name}}',
       '{{location}}',
       '{{contact_email}}',
@@ -338,7 +378,7 @@ To manage notification preferences, contact {{contact_email}}.`,
     antiSpamScore: 97,
     spamAdvice: [
       'High-contrast, professional design without all-caps clickbait subject line',
-      'Transparent pricing and invoice table without misleading financial claims',
+      'Transparent pricing and E-Transfer instructions without misleading financial claims',
       'Includes security & compliance checklist'
     ],
     isCustom: false,
@@ -352,6 +392,14 @@ Assigned Space: {{booth_type}}
 Zone / Location: {{zone_assignment}}
 Confirmed Sessions: {{days_approved}}
 Total Booth Fee: \${{total_fee}}
+
+E-TRANSFER BOOTH PAYMENT:
+Payments for booth reservations are processed through E-Transfer.
+Please send your E-Transfer payment to: {{etransfer_email}}
+
+After completing your payment, kindly send us the answer to your security question (or confirmation details if no security question is required) via {{payment_link}} so we can verify your payment and confirm your booth reservation.
+
+Thank you, and we look forward to having you at the event.
 
 CRITICAL VENDOR CHECKLIST:
 1. Canopy Weights: All 10x10 tents require 20-30 lbs per tent leg (sandbags or weight plates).
@@ -425,9 +473,23 @@ Warm regards,
                 </tr>
               </table>
 
+              <!-- E-Transfer Settlement Block -->
+              <div style="background-color: #FAF8F5; border: 1px solid #E8E2D6; border-radius: 12px; padding: 18px 20px; margin-bottom: 24px;">
+                <h3 style="font-size: 14px; font-weight: 700; color: #3D3A30; margin: 0 0 8px 0;">E-Transfer Booth Payment</h3>
+                <p style="font-size: 13.5px; line-height: 1.6; color: #5A5A40; margin: 0 0 10px 0;">
+                  Payments for booth reservations are processed through E-Transfer. Please send your E-Transfer payment to: <strong>{{etransfer_email}}</strong>
+                </p>
+                <p style="font-size: 13.5px; line-height: 1.6; color: #5A5A40; margin: 0 0 14px 0;">
+                  After completing your payment, kindly send us the answer to your security question (or confirmation details if no security question is required) so we can verify your payment and confirm your booth reservation.
+                </p>
+                <a href="{{payment_link}}" style="display: inline-block; background-color: #5A5A40; color: #FFFFFF; text-decoration: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 700;">
+                  Submit E-Transfer Security Answer &rarr;
+                </a>
+              </div>
+
               <!-- Vendor Guidelines Reminder -->
               <h3 style="font-size: 15px; font-weight: 700; color: #3D3A30; margin: 0 0 12px 0;">
-                Essential Guidelines & Rules
+                Essential Guidelines &amp; Rules
               </h3>
               <ul style="font-size: 13.5px; line-height: 1.6; color: #6B6658; margin: 0 0 24px 0; padding-left: 20px;">
                 <li><strong>Tent Weights:</strong> Minimum 20-30 lbs weight per canopy leg is strictly mandatory.</li>
@@ -436,7 +498,7 @@ Warm regards,
               </ul>
 
               <p style="font-size: 14px; line-height: 1.6; color: #6B6658; margin: 0;">
-                For any setup coordination, please reply to <a href="mailto:{{contact_email}}" style="color: #5A5A40; font-weight: 700;">{{contact_email}}</a>.
+                Thank you, and we look forward to having you at the event. For setup coordination, reply to <a href="mailto:{{contact_email}}" style="color: #5A5A40; font-weight: 700;">{{contact_email}}</a>.
               </p>
             </td>
           </tr>

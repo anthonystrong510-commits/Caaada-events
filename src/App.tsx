@@ -11,13 +11,19 @@ import { VendorBookingPortal } from './components/VendorBookingPortal';
 import { FaqAndGuidelines } from './components/FaqAndGuidelines';
 import { AttendeeRsvpModal } from './components/AttendeeRsvpModal';
 import { VendorApplicationModal } from './components/VendorApplicationModal';
+import { VendorTrackerModal } from './components/VendorTrackerModal';
 import { Footer } from './components/Footer';
 import { KingAdminPortal } from './components/admin/KingAdminPortal';
 import { PublicInvoiceView } from './components/checkout/PublicInvoiceView';
 import { Store, Ticket } from 'lucide-react';
-import { BoothId, FestivalConfigData } from './types';
+import { BoothId, FestivalConfigData, PaymentConfig } from './types';
 import { updateDocumentHead } from './lib/headManager';
-import { subscribeFestivalConfig, DEFAULT_FESTIVAL_CONFIG } from './lib/firebase';
+import {
+  subscribeFestivalConfig,
+  subscribePaymentConfig,
+  DEFAULT_FESTIVAL_CONFIG,
+  DEFAULT_PAYMENT_CONFIG
+} from './lib/firebase';
 
 function getInvoiceFromUrl(): string | null {
   try {
@@ -51,18 +57,39 @@ export default function App() {
 
   const [activeInvoiceId, setActiveInvoiceId] = useState<string | null>(() => getInvoiceFromUrl());
   const [festivalConfig, setFestivalConfig] = useState<FestivalConfigData>(DEFAULT_FESTIVAL_CONFIG);
+  const [paymentConfig, setPaymentConfig] = useState<PaymentConfig>(DEFAULT_PAYMENT_CONFIG);
 
   const [attendeeModalOpen, setAttendeeModalOpen] = useState(false);
   const [vendorModalOpen, setVendorModalOpen] = useState(false);
+  const [trackerModalOpen, setTrackerModalOpen] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).has('track');
+    } catch {
+      return false;
+    }
+  });
+  const [trackerInitialQuery, setTrackerInitialQuery] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('track') || '';
+    } catch {
+      return '';
+    }
+  });
   const [modalBoothId, setModalBoothId] = useState<BoothId>('tent-10x10');
   const [modalDays, setModalDays] = useState<Array<'fri' | 'sat' | 'sun'>>(['fri', 'sat', 'sun']);
 
-  // Subscribe to persistent festival config from Firebase
+  // Subscribe to persistent festival & payment configs from Firebase
   useEffect(() => {
-    const unsub = subscribeFestivalConfig((cfg) => {
+    const unsubFest = subscribeFestivalConfig((cfg) => {
       if (cfg) setFestivalConfig(cfg);
     });
-    return () => unsub();
+    const unsubPayment = subscribePaymentConfig((cfg) => {
+      if (cfg) setPaymentConfig(cfg);
+    });
+    return () => {
+      unsubFest();
+      unsubPayment();
+    };
   }, []);
 
   // Dynamic Document Head / SEO Updates for public and admin navigation
@@ -170,6 +197,11 @@ export default function App() {
     setVendorModalOpen(true);
   };
 
+  const handleOpenTrackerModal = (initialQuery = '') => {
+    setTrackerInitialQuery(initialQuery);
+    setTrackerModalOpen(true);
+  };
+
   // If in Admin Mode, render the comprehensive KingAdmin portal
   if (isAdminView) {
     return <KingAdminPortal onExitAdmin={navigateToPublic} />;
@@ -203,6 +235,7 @@ export default function App() {
           onOpenAttendeeModal={handleOpenAttendeeModal}
           onScrollToVendorBooking={scrollToVendorBooking}
           onOpenVendorModal={() => handleOpenVendorModal('tent-10x10')}
+          onOpenTrackerModal={() => handleOpenTrackerModal('')}
         />
 
         {/* Outdoor Attendee Experience & Discovery */}
@@ -237,6 +270,7 @@ export default function App() {
         {/* Dedicated Vendor Booking Portal & Space Rates */}
         <VendorBookingPortal 
           onOpenVendorModal={handleOpenVendorModal}
+          onOpenTrackerModal={() => handleOpenTrackerModal('')}
         />
 
         {/* FAQ & Guidelines Accordion */}
@@ -248,6 +282,7 @@ export default function App() {
         onScrollToVendorBooking={scrollToVendorBooking}
         onOpenAttendeeModal={handleOpenAttendeeModal}
         onOpenVendorModal={() => handleOpenVendorModal('tent-10x10')}
+        onOpenTrackerModal={() => handleOpenTrackerModal('')}
         onNavigateToAdmin={navigateToAdmin}
       />
 
@@ -263,6 +298,21 @@ export default function App() {
         onClose={() => setVendorModalOpen(false)}
         initialBoothId={modalBoothId}
         initialDays={modalDays}
+        festivalConfig={festivalConfig}
+        paymentConfig={paymentConfig}
+        onOpenTracker={(appId) => {
+          setVendorModalOpen(false);
+          handleOpenTrackerModal(appId);
+        }}
+      />
+
+      {/* Vendor Application & E-Transfer Tracker Dialog */}
+      <VendorTrackerModal
+        isOpen={trackerModalOpen}
+        onClose={() => setTrackerModalOpen(false)}
+        initialQuery={trackerInitialQuery}
+        paymentConfig={paymentConfig}
+        festivalConfig={festivalConfig}
       />
 
       {/* Floating Mobile Quick Action Bar */}

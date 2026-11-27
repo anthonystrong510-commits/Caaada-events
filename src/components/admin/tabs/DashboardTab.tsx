@@ -13,8 +13,8 @@ import {
   Calendar,
   Eye,
   Check,
-  X,
-  Coins,
+  Mail,
+  ShieldCheck,
   FileText
 } from 'lucide-react';
 import { 
@@ -25,7 +25,7 @@ import {
   Invoice
 } from '../../../types';
 import { BOOTH_TIERS } from '../../../data/festivalData';
-import { CryptoTreasuryWidget } from '../widgets/CryptoTreasuryWidget';
+import { DEFAULT_ETRANSFER_EMAIL } from '../../../lib/firebase';
 
 interface DashboardTabProps {
   applications: VendorApplicationRecord[];
@@ -53,8 +53,13 @@ export function DashboardTab({
   isSeeding
 }: DashboardTabProps) {
   const pendingApps = applications.filter(a => a.status === 'pending');
-  const approvedApps = applications.filter(a => a.status === 'approved' || a.status === 'paid');
+  const approvedApps = applications.filter(a => a.status === 'approved' || a.status === 'paid' || a.paymentStatus === 'paid');
+  const paidApps = applications.filter(a => a.paymentStatus === 'paid' || a.status === 'paid');
+  const pendingETransferApps = applications.filter(
+    a => a.paymentStatus === 'pending' || (Boolean(a.eTransferSecurityAnswer) && a.paymentStatus !== 'paid' && a.paymentStatus !== 'waived')
+  );
   const totalRevenue = approvedApps.reduce((sum, a) => sum + (a.totalCalculatedFee || 0), 0);
+  const collectedPaidRevenue = paidApps.reduce((sum, a) => sum + (a.totalCalculatedFee || 0), 0);
   
   const totalGuests = attendees.reduce((sum, a) => sum + (a.groupSize || 1), 0);
   const checkedInCount = attendees.filter(a => a.checkedIn).length;
@@ -79,7 +84,7 @@ export function DashboardTab({
             Festival Organizer Command Center
           </h2>
           <p className="text-[#E8E2D6] text-xs sm:text-sm leading-relaxed">
-            Monitor vendor applications, manage attendee gate check-ins, oversee crypto treasury reserves (USDT, ETH, BTC), and issue verified payment invoices in real-time.
+            Monitor vendor applications, manage attendee gate check-ins, verify submitted E-Transfer security answers, and issue booth invoices in real-time.
           </p>
         </div>
 
@@ -87,7 +92,7 @@ export function DashboardTab({
         <div className="mt-6 flex flex-wrap items-center gap-3 relative z-10">
           <button
             onClick={() => onSelectTab('applications')}
-            className="px-4 py-2 rounded-xl bg-white text-[#3D3A30] hover:bg-[#F0EBE0] text-xs font-bold transition-all shadow-md flex items-center gap-1.5"
+            className="px-4 py-2 rounded-xl bg-white text-[#3D3A30] hover:bg-[#F0EBE0] text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
           >
             <Store className="w-4 h-4 text-[#5A5A40]" />
             <span>Review Applications ({pendingApps.length} Pending)</span>
@@ -95,29 +100,70 @@ export function DashboardTab({
 
           <button
             onClick={() => onSelectTab('invoices')}
-            className="px-4 py-2 rounded-xl bg-emerald-700/80 hover:bg-emerald-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+            className="px-4 py-2 rounded-xl bg-emerald-700/80 hover:bg-emerald-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
           >
             <FileText className="w-4 h-4 text-emerald-300" />
-            <span>Invoices & Crypto Checkout</span>
+            <span>Invoices &amp; E-Transfer</span>
           </button>
 
           <button
-            onClick={() => onSelectTab('emails')}
-            className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs font-bold transition-all flex items-center gap-1.5"
+            onClick={() => onSelectTab('payments')}
+            className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
           >
-            <span>Email Templates & Anti-Spam</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <Mail className="w-3.5 h-3.5" />
+            <span>Configure E-Transfer Email</span>
           </button>
         </div>
       </div>
 
-      {/* Crypto Treasury Dashboard Widget */}
-      {paymentConfig && (
-        <CryptoTreasuryWidget
-          paymentConfig={paymentConfig}
-          onManageWallets={() => onSelectTab('payments')}
-        />
-      )}
+      {/* E-Transfer Settlement Overview Card */}
+      <div className="bg-white rounded-2xl border border-[#E8E2D6] p-5 sm:p-6 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+        <div className="flex items-start gap-4">
+          <div className="w-11 h-11 rounded-2xl bg-[#5A5A40] text-white flex items-center justify-center shrink-0">
+            <Mail className="w-5 h-5 text-[#F0EBE0]" />
+          </div>
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-[#F7F5EE] border border-[#E8E2D6] text-[#5A5A40]">
+                E-Transfer Payment Desk
+              </span>
+              <span className="text-[11px] font-semibold text-emerald-800 flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                {paymentConfig?.eTransferEnabled === false ? 'Disabled' : 'Active'}
+              </span>
+            </div>
+            <div className="text-sm sm:text-base font-bold text-[#3D3A30] font-mono">
+              {paymentConfig?.eTransferEmail?.trim() || DEFAULT_ETRANSFER_EMAIL}
+            </div>
+            <p className="text-xs text-[#7A7566]">
+              Recipient: <strong className="text-[#3D3A30]">{paymentConfig?.eTransferRecipientName || 'Festival Vendor Treasury'}</strong> &bull; {invoices.length} invoices issued
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+          <div className="px-4 py-2.5 rounded-xl bg-[#FAF8F5] border border-[#E8E2D6]">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#7A7566] block">Awaiting Verification</span>
+            <span className="text-lg font-extrabold text-amber-800 tabular-nums">{pendingETransferApps.length}</span>
+          </div>
+
+          <div className="px-4 py-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 block">E-Transfer Collected</span>
+            <span className="text-lg font-extrabold text-emerald-900 tabular-nums">
+              ${collectedPaidRevenue.toLocaleString()}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onSelectTab('payments')}
+            className="px-4 py-2.5 rounded-xl bg-[#5A5A40] hover:bg-[#464632] text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <span>Edit E-Transfer Settings</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
 
       {/* Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

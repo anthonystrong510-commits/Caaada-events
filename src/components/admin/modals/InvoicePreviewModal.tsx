@@ -7,17 +7,15 @@ import {
   ExternalLink, 
   Plus, 
   Trash2, 
-  Coins, 
-  FileText, 
-  Sparkles, 
+  Coins,
+  FileText,
+  Mail,
   ShieldCheck,
   AlertCircle,
-  Building,
-  CheckCircle2,
-  Smartphone
+  CheckCircle2
 } from 'lucide-react';
 import { Invoice, InvoiceLineItem, PaymentConfig, SmtpConfigData, FestivalConfigData, VendorFormData, VendorApplicationRecord, PaymentMethodsEnabled } from '../../../types';
-import { saveInvoice, DEFAULT_FESTIVAL_CONFIG } from '../../../lib/firebase';
+import { saveInvoice, DEFAULT_FESTIVAL_CONFIG, DEFAULT_ETRANSFER_EMAIL } from '../../../lib/firebase';
 import { safeFetchJson } from '../../../lib/apiUtils';
 
 interface InvoicePreviewModalProps {
@@ -69,10 +67,10 @@ export function InvoicePreviewModal({
     existingInvoice?.dueDate || new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0]
   );
   const [notes, setNotes] = useState(
-    existingInvoice?.notes || 'Thank you for your application to Columbia Community Vendor Marketplace! Please finalize payment to secure your booth reservation.'
+    existingInvoice?.notes || 'Thank you for your application to Community Vendor Marketplace! Please complete your E-Transfer payment to confirm your booth reservation.'
   );
   const [terms, setTerms] = useState(
-    existingInvoice?.terms || 'Payment is required within 14 days. Crypto settlements on USDT, ETH, and BTC are confirmed instantly upon TxHash submission.'
+    existingInvoice?.terms || 'Payments for booth reservations are processed through E-Transfer. Kindly submit your security question answer or confirmation details after sending payment.'
   );
 
   // Line items
@@ -151,13 +149,18 @@ export function InvoicePreviewModal({
     try {
       const vendorAppId = (vendor && 'id' in vendor && typeof (vendor as any).id === 'string') ? (vendor as any).id : (existingInvoice?.vendorApplicationId || '');
       
+      const eTransferEmail = paymentConfig.eTransferEmail?.trim() || DEFAULT_ETRANSFER_EMAIL;
+      const eTransferRecipientName = paymentConfig.eTransferRecipientName?.trim() || 'Festival Vendor Treasury';
+      const eTransferInstructions = paymentConfig.eTransferInstructions?.trim() || 'After completing your payment, kindly send us the answer to your security question (or confirmation details if no security question is required) so we can verify your payment and confirm your booth reservation.';
+
       const paymentMethodsEnabled: PaymentMethodsEnabled = {
-        usdt: paymentConfig.usdtEnabled !== false,
-        ethereum: paymentConfig.ethereumEnabled !== false,
-        bitcoin: paymentConfig.bitcoinEnabled !== false,
-        cashApp: paymentConfig.cashAppEnabled !== false,
-        krakenPay: paymentConfig.krakenPayEnabled !== false,
-        bankTransfer: paymentConfig.bankTransferEnabled !== false
+        eTransfer: true,
+        usdt: false,
+        ethereum: false,
+        bitcoin: false,
+        cashApp: false,
+        krakenPay: false,
+        bankTransfer: false
       };
 
       const invoicePayload: Partial<Invoice> & { recipientEmail: string; totalAmount: number } = {
@@ -181,28 +184,12 @@ export function InvoicePreviewModal({
         currency: 'USD',
         notes,
         terms,
+        eTransferEmail,
         paymentMethodsEnabled,
         bankDetails: {
-          bankName: paymentConfig.bankName,
-          bankAccountName: paymentConfig.bankAccountName,
-          bankAccountNumber: paymentConfig.bankAccountNumber,
-          bankRoutingNumber: paymentConfig.bankRoutingNumber,
-          bankSwiftBic: paymentConfig.bankSwiftBic,
-          zelleHandle: paymentConfig.zelleHandle,
-          paymentInstructions: paymentConfig.paymentInstructions
-        },
-        cryptoAddresses: {
-          usdtTrc20: paymentConfig.usdtTrc20,
-          usdtErc20: paymentConfig.usdtErc20,
-          usdtSolana: paymentConfig.usdtSolana,
-          ethereumAddress: paymentConfig.ethereumAddress,
-          ethereumEns: paymentConfig.ethereumEns,
-          bitcoinAddress: paymentConfig.bitcoinAddress,
-          bitcoinLightning: paymentConfig.bitcoinLightning,
-          cashAppCashtag: paymentConfig.cashAppCashtag,
-          cashAppBtcAddress: paymentConfig.cashAppBtcAddress,
-          krakenPayId: paymentConfig.krakenPayId,
-          krakenDepositAddress: paymentConfig.krakenDepositAddress
+          eTransferEmail,
+          eTransferRecipientName,
+          paymentInstructions: eTransferInstructions
         },
         sentAt: sendEmailDirect ? new Date().toISOString() : existingInvoice?.sentAt,
         checkoutUrl: `${window.location.origin}/?invoice=${existingInvoice?.id || invoiceNumber.toLowerCase().replace(/[^a-z0-9]/g, '-')}`
@@ -211,18 +198,7 @@ export function InvoicePreviewModal({
       const saved = await saveInvoice(invoicePayload);
 
       if (sendEmailDirect) {
-        // Send email via safe serverless endpoint with full anti-spam RFC compliance
-        const emailSubject = `Payment Invoice ${saved.invoiceNumber} - ${festName}`;
-        
-        // Build accepted methods string
-        const acceptedMethodsList = [
-          paymentMethodsEnabled.usdt ? 'USDT (TRC20/ERC20/Solana)' : null,
-          paymentMethodsEnabled.ethereum ? 'Ethereum (ETH & ENS)' : null,
-          paymentMethodsEnabled.bitcoin ? 'Bitcoin & Lightning' : null,
-          paymentMethodsEnabled.cashApp ? `CashApp (${paymentConfig.cashAppCashtag})` : null,
-          paymentMethodsEnabled.krakenPay ? 'Kraken Pay ID' : null,
-          paymentMethodsEnabled.bankTransfer ? 'Bank Wire / Zelle' : null
-        ].filter(Boolean).join(' • ');
+        const emailSubject = `E-Transfer Booth Invoice ${saved.invoiceNumber} - ${festName}`;
 
         const emailHtml = `<!DOCTYPE html>
 <html lang="en">
@@ -297,23 +273,29 @@ export function InvoicePreviewModal({
                 </tbody>
               </table>
 
-              <!-- Payment Methods CTA Box -->
+              <!-- E-Transfer Payment Box -->
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#FAF8F5; border:1px solid #E8E2D6; border-radius:12px; margin:24px 0;">
                 <tr>
-                  <td style="padding:20px; text-align:center;">
-                    <h3 style="margin:0 0 8px 0; font-size:15px; font-weight:700; color:#3D3A30;">Accepted Payment Methods</h3>
-                    <p style="margin:0 0 16px 0; font-size:12px; color:#7A7566; line-height:1.5;">
-                      ${acceptedMethodsList || 'Multi-Chain Crypto (USDT, ETH, BTC), CashApp, Kraken & Bank Wire'}
+                  <td style="padding:20px; text-align:left;">
+                    <h3 style="margin:0 0 8px 0; font-size:15px; font-weight:700; color:#3D3A30;">E-Transfer Payment Instructions</h3>
+                    <p style="margin:0 0 10px 0; font-size:13px; color:#5A5A40; line-height:1.5;">
+                      Payments for booth reservations are processed through E-Transfer. Please send your E-Transfer payment to:
                     </p>
-                    <a href="${saved.checkoutUrl}" style="display:inline-block; background-color:#5A5A40; color:#FFFFFF; text-decoration:none; padding:14px 32px; border-radius:10px; font-size:14px; font-weight:700; letter-spacing:0.3px;">
-                      Open Secure Payment Checkout →
+                    <div style="background-color:#FFFFFF; border:1px solid #D5CEBF; border-radius:8px; padding:12px 14px; font-family:monospace; font-size:15px; font-weight:700; color:#3D3A30; margin-bottom:12px;">
+                      ${eTransferEmail}
+                    </div>
+                    <p style="margin:0 0 16px 0; font-size:12px; color:#6B6658; line-height:1.5;">
+                      After completing your payment, kindly send us the answer to your security question (or confirmation details if no security question is required) so we can verify your payment and confirm your booth reservation. Thank you, and we look forward to having you at the event.
+                    </p>
+                    <a href="${saved.checkoutUrl}" style="display:inline-block; background-color:#5A5A40; color:#FFFFFF; text-decoration:none; padding:12px 26px; border-radius:10px; font-size:13px; font-weight:700; letter-spacing:0.3px;">
+                      Submit Security Answer / Open Checkout &rarr;
                     </a>
                   </td>
                 </tr>
               </table>
 
               <p style="margin:16px 0 0 0; font-size:12px; color:#7A7566; line-height:1.5;">
-                <strong>Terms:</strong> ${saved.terms || 'Payment is due within 14 days of issue. Once paid, your space registration is locked in the festival directory.'}
+                <strong>Terms:</strong> ${saved.terms || 'Payments for booth reservations are processed through E-Transfer.'}
               </p>
             </td>
           </tr>
@@ -358,10 +340,13 @@ ${saved.items.map(i => `- ${i.description} (x${i.quantity}): $${Number(i.total).
 ${saved.discountAmount ? `Discount Applied: -$${Number(saved.discountAmount).toFixed(2)}\n` : ''}
 TOTAL DUE: $${Number(saved.totalAmount).toFixed(2)} USD
 
-ACCEPTED PAYMENT OPTIONS:
-${acceptedMethodsList}
+E-TRANSFER PAYMENT INSTRUCTIONS:
+Payments for booth reservations are processed through E-Transfer.
+Please send your E-Transfer payment to: ${eTransferEmail}
 
-PAY ONLINE AT SECURE CHECKOUT:
+After completing your payment, kindly send us the answer to your security question (or confirmation details if no security question is required) so we can verify your payment and confirm your booth reservation.
+
+SUBMIT SECURITY ANSWER / VIEW INVOICE:
 ${saved.checkoutUrl}
 
 --------------------------------------------------
@@ -437,7 +422,7 @@ Unsubscribe: ${unsubscribeUrl}
                 </span>
               </div>
               <p className="text-xs text-[#7A7566]">
-                Preview and dispatch customized payment invoice with multi-chain crypto & sponsor checkout
+                Preview and dispatch customized E-Transfer booth reservation invoice
               </p>
             </div>
           </div>
@@ -725,94 +710,28 @@ Unsubscribe: ${unsubscribeUrl}
                 </div>
               </div>
 
-              {/* Active Payment Methods Summary */}
+              {/* E-Transfer Payment Channel Summary */}
               <div className="p-5 rounded-2xl bg-[#FDFBF7] border border-[#5A5A40]/30 space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2">
-                    <Coins className="w-5 h-5 text-[#5A5A40]" />
-                    <h4 className="font-bold text-sm text-[#3D3A30]">Active Checkout Payment Channels</h4>
+                    <Mail className="w-5 h-5 text-[#5A5A40]" />
+                    <h4 className="font-bold text-sm text-[#3D3A30]">E-Transfer Payment Instructions</h4>
                   </div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                    Configured in Admin
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                    Active E-Transfer Desk
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                  {/* Bank Wire */}
-                  {paymentConfig.bankTransferEnabled !== false && (
-                    <div className="p-3 rounded-xl bg-white border border-[#E8E2D6]">
-                      <div className="font-bold text-[#3D3A30] flex items-center gap-1.5 mb-1">
-                        <Building className="w-3.5 h-3.5 text-[#5A5A40]" /> Bank Wire & Zelle
-                      </div>
-                      <p className="text-[11px] text-[#7A7566] font-semibold">
-                        {paymentConfig.bankName || 'First Columbia Bank'}
-                      </p>
-                      <span className="text-[10px] text-[#7A7566]">Zelle: {paymentConfig.zelleHandle}</span>
-                    </div>
-                  )}
-
-                  {/* CashApp */}
-                  {paymentConfig.cashAppEnabled !== false && (
-                    <div className="p-3 rounded-xl bg-white border border-[#E8E2D6]">
-                      <div className="font-bold text-emerald-700 flex items-center gap-1.5 mb-1">
-                        <Smartphone className="w-3.5 h-3.5 text-emerald-600" /> CashApp
-                      </div>
-                      <p className="text-[11px] text-[#3D3A30] font-mono font-bold">
-                        {paymentConfig.cashAppCashtag || '$ColumbiaFestival'}
-                      </p>
-                      <span className="text-[10px] text-emerald-800 font-semibold">Instant Mobile Checkout</span>
-                    </div>
-                  )}
-
-                  {/* Kraken */}
-                  {paymentConfig.krakenPayEnabled !== false && (
-                    <div className="p-3 rounded-xl bg-white border border-[#E8E2D6]">
-                      <div className="font-bold text-purple-700 flex items-center gap-1.5 mb-1">
-                        <Sparkles className="w-3.5 h-3.5 text-purple-600" /> Kraken Pay
-                      </div>
-                      <p className="text-[11px] text-[#3D3A30] font-mono font-semibold truncate">
-                        {paymentConfig.krakenPayId || 'KRAKEN-COLUMBIA-FEST'}
-                      </p>
-                      <span className="text-[10px] text-purple-800 font-semibold">Tier 1 Settlement</span>
-                    </div>
-                  )}
-
-                  {/* USDT */}
-                  {paymentConfig.usdtEnabled !== false && (
-                    <div className="p-3 rounded-xl bg-white border border-[#E8E2D6]">
-                      <div className="font-bold text-teal-800 flex items-center gap-1.5 mb-1">
-                        <span className="w-2 h-2 rounded-full bg-teal-500"></span> USDT Tether
-                      </div>
-                      <p className="text-[11px] text-[#7A7566] truncate font-mono">
-                        {paymentConfig.usdtTrc20 || 'TRC20 / ERC20'}
-                      </p>
-                      <span className="text-[10px] text-teal-700 font-semibold">Multi-Chain</span>
-                    </div>
-                  )}
-
-                  {/* ETH */}
-                  {paymentConfig.ethereumEnabled !== false && (
-                    <div className="p-3 rounded-xl bg-white border border-[#E8E2D6]">
-                      <div className="font-bold text-indigo-800 flex items-center gap-1.5 mb-1">
-                        <span className="w-2 h-2 rounded-full bg-indigo-500"></span> Ethereum
-                      </div>
-                      <p className="text-[11px] text-[#7A7566] font-mono truncate">
-                        {paymentConfig.ethereumEns || 'columbiafestival.eth'}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* BTC */}
-                  {paymentConfig.bitcoinEnabled !== false && (
-                    <div className="p-3 rounded-xl bg-white border border-[#E8E2D6]">
-                      <div className="font-bold text-amber-800 flex items-center gap-1.5 mb-1">
-                        <span className="w-2 h-2 rounded-full bg-amber-500"></span> Bitcoin Native
-                      </div>
-                      <p className="text-[11px] text-[#7A7566] font-mono truncate">
-                        {paymentConfig.bitcoinAddress ? `${paymentConfig.bitcoinAddress.substring(0, 10)}...` : 'SegWit / LN'}
-                      </p>
-                    </div>
-                  )}
+                <div className="p-3.5 rounded-xl bg-white border border-[#E8E2D6] space-y-1.5 text-xs">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-[#7A7566]">
+                    Send E-Transfer Payment To ({paymentConfig.eTransferRecipientName || 'Festival Vendor Treasury'}):
+                  </div>
+                  <div className="font-mono font-extrabold text-sm text-[#3D3A30] select-all">
+                    {paymentConfig.eTransferEmail || DEFAULT_ETRANSFER_EMAIL}
+                  </div>
+                  <p className="text-[11px] text-[#6B6658] pt-1 leading-relaxed">
+                    After completing payment, vendors submit the answer to their security question (or confirmation details if no security question is required) via the invoice checkout or Application Tracker so admin can verify and confirm the booth.
+                  </p>
                 </div>
               </div>
 

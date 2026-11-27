@@ -27,6 +27,8 @@ import {
 import firebaseConfigFile from '../../firebase-applet-config.json';
 import { 
   VendorApplicationRecord, 
+  VendorTrackerRecord,
+  PaymentStatus,
   AttendeeRsvpRecord, 
   FestivalConfigData, 
   EmailTemplateData, 
@@ -39,6 +41,46 @@ import {
 } from '../types';
 import { EVENT_CONFIG } from '../data/festivalData';
 import { DEFAULT_EMAIL_TEMPLATES } from '../data/defaultEmailTemplates';
+
+export const DEFAULT_ETRANSFER_EMAIL = 'festvendorstate@gmail.com';
+export const DEFAULT_ETRANSFER_INSTRUCTIONS = `Payments for booth reservations are processed through E-Transfer.
+
+Please send your E-Transfer payment to:
+
+festvendorstate@gmail.com
+
+After completing your payment, kindly send us the answer to your security question (or confirmation details if no security question is required) so we can verify your payment and confirm your booth reservation.
+
+Thank you, and we look forward to having you at the event.`;
+
+export async function hashEmailForTracker(email: string): Promise<string> {
+  const normalized = (email || '').trim().toLowerCase();
+  if (!normalized) return '0'.repeat(64);
+  try {
+    if (typeof window !== 'undefined' && window.crypto?.subtle) {
+      const encoder = new TextEncoder();
+      const buf = await window.crypto.subtle.digest('SHA-256', encoder.encode(normalized));
+      return Array.from(new Uint8Array(buf))
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+    }
+  } catch {}
+  // Deterministic 64-hex fallback hash when WebCrypto subtle is unavailable
+  let h1 = 0x811c9dc5;
+  let h2 = 0x01000193;
+  for (let i = 0; i < normalized.length; i++) {
+    const ch = normalized.charCodeAt(i);
+    h1 ^= ch;
+    h1 = Math.imul(h1, 0x01000193) >>> 0;
+    h2 = Math.imul(h2 ^ ch, 0x85ebca6b) >>> 0;
+  }
+  return (
+    h1.toString(16).padStart(8, '0') +
+    h2.toString(16).padStart(8, '0') +
+    normalized.length.toString(16).padStart(8, '0') +
+    'f3571a1e'
+  ).padEnd(64, 'a');
+}
 
 // -------------------------------------------------------------
 // 0. DEEP DATA SANITIZER (Removes undefined fields for Firestore)
@@ -83,6 +125,22 @@ const resolvedConfig = {
 export const app = getApps().length === 0 ? initializeApp(resolvedConfig) : getApp();
 export const auth = getAuth(app);
 export const db = getFirestore(app, resolvedConfig.firestoreDatabaseId);
+
+// Ensure local browser caches from any previous Firebase database are cleared automatically when connecting to a new database
+if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+  try {
+    const activeDbKey = 'festival_active_firestore_db_id';
+    const prevDbId = localStorage.getItem(activeDbKey);
+    if (prevDbId !== resolvedConfig.firestoreDatabaseId) {
+      localStorage.removeItem('columbia_vendor_apps_cache');
+      localStorage.removeItem('columbia_invoices_cache');
+      localStorage.removeItem('columbia_event_locations_cache_v6_100events');
+      localStorage.removeItem('columbia_deleted_location_ids_v1');
+      localStorage.removeItem('columbia_custom_cities_cache_v1');
+      localStorage.setItem(activeDbKey, resolvedConfig.firestoreDatabaseId);
+    }
+  } catch {}
+}
 
 export const googleProvider = new GoogleAuthProvider();
 
@@ -138,39 +196,67 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 // 3. Test Connection
 export async function testConnection(): Promise<boolean> {
   try {
-    await getDocFromServer(doc(db, 'festival_config', 'settings'));
+    await getDocFromServer(doc(db, 'test', 'connection'));
     return true;
   } catch (error) {
     if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn('Firebase client is offline or connecting.');
+      console.error('Please check your Firebase configuration.');
     }
     return false;
   }
 }
+void testConnection();
 
-// 4. Vendor Applications API
+// 4. Vendor Applications & Public Tracker API
 export async function createVendorApplication(data: Omit<VendorApplicationRecord, 'id' | 'createdAt' | 'status'> & { id?: string }): Promise<string> {
-  const applicationId = data.id || `app-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
+  const applicationId = data.id || `APP-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
   const path = `vendor_applications/${applicationId}`;
+  const now = new Date().toISOString();
   
   const payload: VendorApplicationRecord = {
     ...data,
     id: applicationId,
     status: 'pending',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    createdAt: now,
+    updatedAt: now,
     paymentStatus: 'unpaid'
   };
 
   const cleaned = cleanFirestoreData(payload);
+  const emailHash = await hashEmailForTracker(data.email);
+  const trackerPayload: VendorTrackerRecord = cleanFirestoreData({
+    id: applicationId,
+    businessName: data.businessName,
+    vendorKind: data.vendorKind || 'Certified Farmer',
+    category: data.category,
+    selectedBoothId: data.selectedBoothId,
+    selectedDays: data.selectedDays,
+    totalCalculatedFee: Number(data.totalCalculatedFee || 0),
+    boothZoneAssignment: data.boothZoneAssignment || '',
+    status: 'pending',
+    paymentStatus: 'unpaid',
+    emailHash,
+    createdAt: now,
+    updatedAt: now
+  });
 
   try {
     await setDoc(doc(db, 'vendor_applications', applicationId), cleaned);
+    try {
+      await setDoc(doc(db, 'vendor_tracker', applicationId), trackerPayload);
+    } catch (trackerErr) {
+      console.warn('Vendor tracker sync note:', trackerErr);
+    }
     try {
       const existingStr = localStorage.getItem('columbia_vendor_apps_cache');
       const existing = existingStr ? JSON.parse(existingStr) : [];
       const updated = [cleaned, ...existing.filter((a: any) => a.id !== applicationId)];
       localStorage.setItem('columbia_vendor_apps_cache', JSON.stringify(updated));
+
+      const trackerStr = localStorage.getItem('columbia_vendor_tracker_cache');
+      const trackerList = trackerStr ? JSON.parse(trackerStr) : [];
+      const updatedTrackers = [trackerPayload, ...trackerList.filter((t: any) => t.id !== applicationId)];
+      localStorage.setItem('columbia_vendor_tracker_cache', JSON.stringify(updatedTrackers));
     } catch {}
     return applicationId;
   } catch (error) {
@@ -226,18 +312,92 @@ export function subscribeVendorApplications(callback: (apps: VendorApplicationRe
   );
 }
 
+export function subscribeVendorTrackers(callback: (trackers: VendorTrackerRecord[]) => void) {
+  try {
+    const cachedStr = localStorage.getItem('columbia_vendor_tracker_cache');
+    if (cachedStr) {
+      const parsed = JSON.parse(cachedStr);
+      if (Array.isArray(parsed)) callback(parsed);
+    }
+  } catch {}
+
+  const q = query(collection(db, 'vendor_tracker'), orderBy('createdAt', 'desc'));
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const list: VendorTrackerRecord[] = [];
+      snapshot.forEach((d) => {
+        list.push({ id: d.id, ...(d.data() as Omit<VendorTrackerRecord, 'id'>) });
+      });
+      try {
+        localStorage.setItem('columbia_vendor_tracker_cache', JSON.stringify(list));
+      } catch {}
+      callback(list);
+    },
+    (error) => {
+      console.warn('Snapshot note for vendor_tracker:', error);
+    }
+  );
+}
+
 export async function updateVendorApplicationStatus(
   id: string, 
   updates: Partial<VendorApplicationRecord>
 ): Promise<void> {
   const path = `vendor_applications/${id}`;
+  const now = new Date().toISOString();
   const cleaned = cleanFirestoreData({
     ...updates,
-    updatedAt: new Date().toISOString()
+    updatedAt: now
   });
 
   try {
     await updateDoc(doc(db, 'vendor_applications', id), cleaned);
+
+    // Mirror status / paymentStatus / zone / E-Transfer fields into vendor_tracker/{id}
+    try {
+      const trackerRef = doc(db, 'vendor_tracker', id);
+      const trackerSnap = await getDoc(trackerRef);
+      if (trackerSnap.exists()) {
+        const trackerPatch: Record<string, any> = { updatedAt: now };
+        if (updates.status !== undefined) trackerPatch.status = updates.status;
+        if (updates.paymentStatus !== undefined) trackerPatch.paymentStatus = updates.paymentStatus;
+        if (updates.boothZoneAssignment !== undefined) trackerPatch.boothZoneAssignment = updates.boothZoneAssignment;
+        if (updates.totalCalculatedFee !== undefined) trackerPatch.totalCalculatedFee = updates.totalCalculatedFee;
+        if (updates.eTransferSecurityAnswer !== undefined) trackerPatch.eTransferSecurityAnswer = updates.eTransferSecurityAnswer;
+        if (updates.eTransferPayerEmail !== undefined) trackerPatch.eTransferPayerEmail = updates.eTransferPayerEmail;
+        if (updates.eTransferSubmittedAt !== undefined) trackerPatch.eTransferSubmittedAt = updates.eTransferSubmittedAt;
+        await updateDoc(trackerRef, cleanFirestoreData(trackerPatch));
+      } else {
+        const appSnap = await getDoc(doc(db, 'vendor_applications', id));
+        if (appSnap.exists()) {
+          const appData = appSnap.data() as VendorApplicationRecord;
+          const emailHash = await hashEmailForTracker(appData.email || '');
+          const fullTracker: VendorTrackerRecord = cleanFirestoreData({
+            id,
+            businessName: appData.businessName || 'Vendor',
+            vendorKind: appData.vendorKind || 'Certified Farmer',
+            category: appData.category || 'Marketplace',
+            selectedBoothId: appData.selectedBoothId || 'tent-10x10',
+            selectedDays: appData.selectedDays || ['fri', 'sat', 'sun'],
+            totalCalculatedFee: Number(updates.totalCalculatedFee ?? appData.totalCalculatedFee ?? 0),
+            boothZoneAssignment: updates.boothZoneAssignment ?? appData.boothZoneAssignment ?? '',
+            status: updates.status ?? appData.status ?? 'pending',
+            paymentStatus: (updates.paymentStatus ?? appData.paymentStatus ?? 'unpaid') as PaymentStatus,
+            emailHash,
+            eTransferSecurityAnswer: updates.eTransferSecurityAnswer ?? appData.eTransferSecurityAnswer,
+            eTransferPayerEmail: updates.eTransferPayerEmail ?? appData.eTransferPayerEmail,
+            eTransferSubmittedAt: updates.eTransferSubmittedAt ?? appData.eTransferSubmittedAt,
+            createdAt: appData.createdAt || now,
+            updatedAt: now
+          });
+          await setDoc(trackerRef, fullTracker);
+        }
+      }
+    } catch (trackerSyncErr) {
+      console.warn('Could not sync vendor_tracker update:', trackerSyncErr);
+    }
+
     try {
       const cachedStr = localStorage.getItem('columbia_vendor_apps_cache');
       if (cachedStr) {
@@ -245,16 +405,189 @@ export async function updateVendorApplicationStatus(
         const updated = parsed.map((a: any) => a.id === id ? { ...a, ...cleaned } : a);
         localStorage.setItem('columbia_vendor_apps_cache', JSON.stringify(updated));
       }
+
+      const trackerCacheStr = localStorage.getItem('columbia_vendor_tracker_cache');
+      if (trackerCacheStr) {
+        const parsedTrackers = JSON.parse(trackerCacheStr);
+        const updatedTrackers = parsedTrackers.map((t: any) => t.id === id ? { ...t, ...cleaned } : t);
+        localStorage.setItem('columbia_vendor_tracker_cache', JSON.stringify(updatedTrackers));
+      }
     } catch {}
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, path);
   }
 }
 
+export async function lookupVendorTrackers(searchInput: string): Promise<VendorTrackerRecord[]> {
+  const clean = (searchInput || '').trim();
+  if (!clean) return [];
+
+  const resultsMap = new Map<string, VendorTrackerRecord>();
+
+  if (clean.includes('@')) {
+    const emailHash = await hashEmailForTracker(clean);
+    try {
+      const q = query(
+        collection(db, 'vendor_tracker'),
+        where('emailHash', '==', emailHash),
+        limit(5)
+      );
+      const snap = await getDocs(q);
+      snap.forEach((d) => {
+        resultsMap.set(d.id, { id: d.id, ...(d.data() as Omit<VendorTrackerRecord, 'id'>) });
+      });
+    } catch (err) {
+      console.warn('Email tracker query note:', err);
+    }
+
+    // Fallback check against local cache
+    try {
+      const trackerCacheStr = localStorage.getItem('columbia_vendor_tracker_cache');
+      if (trackerCacheStr) {
+        const parsed: VendorTrackerRecord[] = JSON.parse(trackerCacheStr);
+        parsed.filter((t) => t.emailHash === emailHash).forEach((t) => {
+          if (!resultsMap.has(t.id)) resultsMap.set(t.id, t);
+        });
+      }
+      const appsCacheStr = localStorage.getItem('columbia_vendor_apps_cache');
+      if (appsCacheStr) {
+        const apps: VendorApplicationRecord[] = JSON.parse(appsCacheStr);
+        apps
+          .filter((a) => (a.email || '').trim().toLowerCase() === clean.toLowerCase())
+          .forEach((a) => {
+            if (!resultsMap.has(a.id)) {
+              resultsMap.set(a.id, {
+                id: a.id,
+                businessName: a.businessName,
+                vendorKind: a.vendorKind,
+                category: a.category,
+                selectedBoothId: a.selectedBoothId,
+                selectedDays: a.selectedDays,
+                totalCalculatedFee: a.totalCalculatedFee,
+                boothZoneAssignment: a.boothZoneAssignment,
+                status: a.status,
+                paymentStatus: (a.paymentStatus || 'unpaid') as PaymentStatus,
+                emailHash,
+                eTransferSecurityAnswer: a.eTransferSecurityAnswer,
+                eTransferPayerEmail: a.eTransferPayerEmail,
+                eTransferSubmittedAt: a.eTransferSubmittedAt,
+                createdAt: a.createdAt,
+                updatedAt: a.updatedAt
+              });
+            }
+          });
+      }
+    } catch {}
+  } else {
+    const normalizedId = clean.replace(/^#/, '');
+    const idCandidates = Array.from(
+      new Set([normalizedId, normalizedId.toUpperCase(), normalizedId.toLowerCase()])
+    );
+
+    for (const candidate of idCandidates) {
+      try {
+        const snap = await getDoc(doc(db, 'vendor_tracker', candidate));
+        if (snap.exists()) {
+          resultsMap.set(snap.id, { id: snap.id, ...(snap.data() as Omit<VendorTrackerRecord, 'id'>) });
+        }
+      } catch (err) {
+        console.warn('Direct tracker lookup note:', err);
+      }
+    }
+
+    // Fallback check against local cache
+    try {
+      const lower = normalizedId.toLowerCase();
+      const trackerCacheStr = localStorage.getItem('columbia_vendor_tracker_cache');
+      if (trackerCacheStr) {
+        const parsed: VendorTrackerRecord[] = JSON.parse(trackerCacheStr);
+        parsed.filter((t) => t.id.toLowerCase() === lower).forEach((t) => {
+          if (!resultsMap.has(t.id)) resultsMap.set(t.id, t);
+        });
+      }
+      const appsCacheStr = localStorage.getItem('columbia_vendor_apps_cache');
+      if (appsCacheStr) {
+        const apps: VendorApplicationRecord[] = JSON.parse(appsCacheStr);
+        apps.filter((a) => a.id.toLowerCase() === lower).forEach(async (a) => {
+          if (!resultsMap.has(a.id)) {
+            resultsMap.set(a.id, {
+              id: a.id,
+              businessName: a.businessName,
+              vendorKind: a.vendorKind,
+              category: a.category,
+              selectedBoothId: a.selectedBoothId,
+              selectedDays: a.selectedDays,
+              totalCalculatedFee: a.totalCalculatedFee,
+              boothZoneAssignment: a.boothZoneAssignment,
+              status: a.status,
+              paymentStatus: (a.paymentStatus || 'unpaid') as PaymentStatus,
+              emailHash: '0'.repeat(64),
+              eTransferSecurityAnswer: a.eTransferSecurityAnswer,
+              eTransferPayerEmail: a.eTransferPayerEmail,
+              eTransferSubmittedAt: a.eTransferSubmittedAt,
+              createdAt: a.createdAt,
+              updatedAt: a.updatedAt
+            });
+          }
+        });
+      }
+    } catch {}
+  }
+
+  return Array.from(resultsMap.values()).sort((a, b) =>
+    (b.createdAt || '').localeCompare(a.createdAt || '')
+  );
+}
+
+export async function submitVendorETransferAnswer(
+  applicationId: string,
+  securityAnswer: string,
+  payerEmail?: string
+): Promise<void> {
+  const now = new Date().toISOString();
+  const patch = cleanFirestoreData({
+    eTransferSecurityAnswer: securityAnswer.trim(),
+    eTransferPayerEmail: (payerEmail || '').trim(),
+    eTransferSubmittedAt: now,
+    paymentStatus: 'pending' as PaymentStatus,
+    updatedAt: now
+  });
+
+  try {
+    await updateDoc(doc(db, 'vendor_tracker', applicationId), patch);
+  } catch (err) {
+    console.warn('Firestore vendor_tracker security answer write note:', err);
+  }
+
+  if (auth.currentUser) {
+    try {
+      await updateDoc(doc(db, 'vendor_applications', applicationId), patch);
+    } catch {}
+  }
+
+  try {
+    const trackerStr = localStorage.getItem('columbia_vendor_tracker_cache');
+    if (trackerStr) {
+      const parsed = JSON.parse(trackerStr);
+      const updated = parsed.map((t: any) => t.id === applicationId ? { ...t, ...patch } : t);
+      localStorage.setItem('columbia_vendor_tracker_cache', JSON.stringify(updated));
+    }
+    const appsStr = localStorage.getItem('columbia_vendor_apps_cache');
+    if (appsStr) {
+      const parsed = JSON.parse(appsStr);
+      const updated = parsed.map((a: any) => a.id === applicationId ? { ...a, ...patch } : a);
+      localStorage.setItem('columbia_vendor_apps_cache', JSON.stringify(updated));
+    }
+  } catch {}
+}
+
 export async function deleteVendorApplication(id: string): Promise<void> {
   const path = `vendor_applications/${id}`;
   try {
     await deleteDoc(doc(db, 'vendor_applications', id));
+    try {
+      await deleteDoc(doc(db, 'vendor_tracker', id));
+    } catch {}
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, path);
   }
@@ -330,10 +663,13 @@ export function subscribeEmailTemplates(callback: (templates: EmailTemplateData[
     colRef,
     (snapshot) => {
       if (snapshot.empty) {
-        // Seed default templates if empty
-        seedDefaultEmailTemplates().then(() => {
+        if (auth.currentUser) {
+          seedDefaultEmailTemplates().then(() => {
+            callback(DEFAULT_EMAIL_TEMPLATES);
+          });
+        } else {
           callback(DEFAULT_EMAIL_TEMPLATES);
-        });
+        }
         return;
       }
       const list: EmailTemplateData[] = [];
@@ -437,11 +773,13 @@ export function subscribeSmtpConfig(callback: (config: SmtpConfigData) => void) 
     (snap) => {
       if (snap.exists()) {
         callback({ id: snap.id, ...(snap.data() as SmtpConfigData) });
-      } else {
-        // Save initial default
+      } else if (auth.currentUser) {
+        // Save initial default when admin is authenticated
         saveSmtpConfig(DEFAULT_SMTP_CONFIG).then(() => {
           callback(DEFAULT_SMTP_CONFIG);
-        });
+        }).catch(() => callback(DEFAULT_SMTP_CONFIG));
+      } else {
+        callback(DEFAULT_SMTP_CONFIG);
       }
     },
     (error) => {
@@ -454,10 +792,10 @@ export function subscribeSmtpConfig(callback: (config: SmtpConfigData) => void) 
 export async function saveSmtpConfig(config: SmtpConfigData): Promise<void> {
   const path = 'email_config/smtp_settings';
   try {
-    await setDoc(doc(db, 'email_config', 'smtp_settings'), {
+    await setDoc(doc(db, 'email_config', 'smtp_settings'), cleanFirestoreData({
       ...config,
       updatedAt: new Date().toISOString()
-    });
+    }));
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -468,13 +806,14 @@ export async function logOutboundEmail(logData: OutboundEmailLog): Promise<void>
   const logId = logData.id || `mail-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
   const path = `outbound_email_logs/${logId}`;
   try {
-    await setDoc(doc(db, 'outbound_email_logs', logId), {
+    const cleaned = cleanFirestoreData({
       ...logData,
       id: logId,
       sentAt: logData.sentAt || new Date().toISOString()
     });
+    await setDoc(doc(db, 'outbound_email_logs', logId), cleaned);
   } catch (error) {
-    console.warn('Note: Could not write email log to Firestore:', error);
+    console.warn(`Note: Could not write email log (${path}) to Firestore:`, error);
   }
 }
 
@@ -524,7 +863,8 @@ export const DEFAULT_FESTIVAL_CONFIG: FestivalConfigData = {
   durationBadge: EVENT_CONFIG.durationBadge,
   admissionBadge: EVENT_CONFIG.admissionBadge,
   locationBadge: EVENT_CONFIG.locationBadge,
-  contactEmail: 'organizers@festivalmarket.org',
+  contactEmail: EVENT_CONFIG.contactEmail,
+  vendorFollowUpEmail: EVENT_CONFIG.contactEmail,
   freeAdmission: true,
   active: true,
   siteDomain: 'https://skysevents.online',
@@ -542,10 +882,12 @@ export function subscribeFestivalConfig(callback: (config: FestivalConfigData) =
     (snap) => {
       if (snap.exists()) {
         callback({ id: snap.id, ...(snap.data() as FestivalConfigData) });
-      } else {
+      } else if (auth.currentUser) {
         saveFestivalConfig(DEFAULT_FESTIVAL_CONFIG).then(() => {
           callback(DEFAULT_FESTIVAL_CONFIG);
-        });
+        }).catch(() => callback(DEFAULT_FESTIVAL_CONFIG));
+      } else {
+        callback(DEFAULT_FESTIVAL_CONFIG);
       }
     },
     (error) => {
@@ -558,10 +900,10 @@ export function subscribeFestivalConfig(callback: (config: FestivalConfigData) =
 export async function saveFestivalConfig(config: FestivalConfigData): Promise<void> {
   const path = 'festival_config/settings';
   try {
-    await setDoc(doc(db, 'festival_config', 'settings'), {
+    await setDoc(doc(db, 'festival_config', 'settings'), cleanFirestoreData({
       ...config,
       updatedAt: new Date().toISOString()
-    });
+    }));
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -715,6 +1057,24 @@ export async function seedSampleData(): Promise<{ apps: number; rsvps: number }>
   for (const a of sampleApps) {
     try {
       await setDoc(doc(db, 'vendor_applications', a.id!), a);
+      const emailHash = await hashEmailForTracker(a.email || '');
+      const trackerDoc: VendorTrackerRecord = cleanFirestoreData({
+        id: a.id!,
+        businessName: a.businessName || 'Vendor',
+        vendorKind: a.vendorKind || 'Certified Farmer',
+        category: a.category || 'Marketplace',
+        selectedBoothId: a.selectedBoothId || 'tent-10x10',
+        selectedDays: a.selectedDays || ['fri', 'sat', 'sun'],
+        totalCalculatedFee: Number(a.totalCalculatedFee || 0),
+        boothZoneAssignment: a.boothZoneAssignment || '',
+        status: (a.status || 'pending') as any,
+        paymentStatus: (a.paymentStatus || 'unpaid') as PaymentStatus,
+        emailHash,
+        eTransferSecurityAnswer: a.paymentStatus === 'paid' ? 'Festival2026' : undefined,
+        createdAt: a.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+      await setDoc(doc(db, 'vendor_tracker', a.id!), trackerDoc);
       appCount++;
     } catch (e) {
       console.warn('Sample app write:', e);
@@ -734,36 +1094,40 @@ export async function seedSampleData(): Promise<{ apps: number; rsvps: number }>
 }
 
 // -------------------------------------------------------------
-// PAYMENT GATEWAY & CRYPTO ADDRESSES (USDT, ETH, BTC, KRAKEN, CASHAPP)
+// PAYMENT GATEWAY CONFIGURATION (E-TRANSFER PRIMARY)
 // -------------------------------------------------------------
 
 export const DEFAULT_PAYMENT_CONFIG: PaymentConfig = {
   id: 'main_payment_config',
-  usdtTrc20: 'TQ9w5fGq8F3D1Xv9Rz5L2P8m7K4v9W2p1L',
-  usdtErc20: '0x71C8366420A0926793fe1fcC713be5375B09B035',
-  usdtSolana: '7XwK8f9Rz5L2P8m7K4v9W2p1L8F3D1Xv9Rz5L2P8m7K4',
-  usdtEnabled: true,
-  ethereumAddress: '0x71C8366420A0926793fe1fcC713be5375B09B035',
-  ethereumEns: 'columbiafestival.eth',
-  ethereumEnabled: true,
-  bitcoinAddress: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-  bitcoinLightning: 'columbiafestival@strike.me',
-  bitcoinEnabled: true,
-  cashAppCashtag: '$ColumbiaFestival',
-  cashAppBtcAddress: 'bc1q9v8u5h2x3k4p5w6q7r8s9t0u1v2w3x4y5z6a7b',
-  cashAppEnabled: true,
-  krakenPayId: 'KRAKEN-COLUMBIA-FEST-882',
-  krakenDepositAddress: '0x71C8366420A0926793fe1fcC713be5375B09B035',
-  krakenPayEnabled: true,
-  krakenSponsorBadgeEnabled: true,
-  bankTransferEnabled: true,
-  bankName: 'First Columbia Community Bank',
-  bankAccountName: 'Columbia Market Association LLC',
-  bankAccountNumber: '••••••••4892',
-  bankRoutingNumber: '121000358',
-  bankSwiftBic: 'FCBKUS33',
-  zelleHandle: 'treasury@columbiamarket.org',
-  paymentInstructions: 'Please include your Invoice # in the transaction memo or note. For on-chain cryptocurrency payments, paste your transaction hash (TxID) in the checkout receipt portal to confirm instant booth assignment.',
+  eTransferEnabled: true,
+  eTransferEmail: DEFAULT_ETRANSFER_EMAIL,
+  eTransferRecipientName: 'Festival Booth Reservations',
+  eTransferInstructions: DEFAULT_ETRANSFER_INSTRUCTIONS,
+  usdtTrc20: '',
+  usdtErc20: '',
+  usdtSolana: '',
+  usdtEnabled: false,
+  ethereumAddress: '',
+  ethereumEns: '',
+  ethereumEnabled: false,
+  bitcoinAddress: '',
+  bitcoinLightning: '',
+  bitcoinEnabled: false,
+  cashAppCashtag: '',
+  cashAppBtcAddress: '',
+  cashAppEnabled: false,
+  krakenPayId: '',
+  krakenDepositAddress: '',
+  krakenPayEnabled: false,
+  krakenSponsorBadgeEnabled: false,
+  bankTransferEnabled: false,
+  bankName: '',
+  bankAccountName: '',
+  bankAccountNumber: '',
+  bankRoutingNumber: '',
+  bankSwiftBic: '',
+  zelleHandle: '',
+  paymentInstructions: DEFAULT_ETRANSFER_INSTRUCTIONS,
   updatedAt: new Date().toISOString()
 };
 
@@ -774,8 +1138,9 @@ export async function getPaymentConfig(): Promise<PaymentConfig> {
     if (snap.exists()) {
       return { ...DEFAULT_PAYMENT_CONFIG, ...snap.data(), id: 'main_payment_config' } as PaymentConfig;
     }
-    // Bootstrap initial config
-    await setDoc(docRef, DEFAULT_PAYMENT_CONFIG);
+    if (auth.currentUser) {
+      await setDoc(docRef, cleanFirestoreData(DEFAULT_PAYMENT_CONFIG));
+    }
     return DEFAULT_PAYMENT_CONFIG;
   } catch (error) {
     console.error('Error fetching payment config:', error);
@@ -784,18 +1149,18 @@ export async function getPaymentConfig(): Promise<PaymentConfig> {
 }
 
 export async function savePaymentConfig(config: Partial<PaymentConfig>): Promise<PaymentConfig> {
+  const path = 'payment_config/main_payment_config';
   try {
     const docRef = doc(db, 'payment_config', 'main_payment_config');
-    const payload = {
+    const payload = cleanFirestoreData({
       ...config,
       id: 'main_payment_config',
       updatedAt: new Date().toISOString()
-    };
+    });
     await setDoc(docRef, payload, { merge: true });
     return payload as PaymentConfig;
   } catch (error) {
-    console.error('Error saving payment config:', error);
-    throw error;
+    handleFirestoreError(error, OperationType.WRITE, path);
   }
 }
 
@@ -970,13 +1335,27 @@ export async function saveInvoice(invoice: Partial<Invoice> & { recipientEmail: 
       totalAmount: Number(invoice.totalAmount),
       paidAmount: Number(invoice.paidAmount || 0),
       currency: invoice.currency || 'USD',
-      notes: invoice.notes || 'Thank you for participating in the Columbia Community Vendor Marketplace!',
-      terms: invoice.terms || 'Payment is due within 14 days of receipt to guarantee reserved booth space and electrical allocations.',
+      notes: invoice.notes || 'Thank you for participating in the Community Vendor Marketplace!',
+      terms: invoice.terms || 'Payments for booth reservations are processed through E-Transfer.',
+      eTransferEmail: invoice.eTransferEmail || DEFAULT_ETRANSFER_EMAIL,
+      eTransferSecurityAnswer: invoice.eTransferSecurityAnswer,
+      paymentMethodsEnabled: invoice.paymentMethodsEnabled || {
+        eTransfer: true,
+        usdt: false,
+        ethereum: false,
+        bitcoin: false,
+        cashApp: false,
+        krakenPay: false,
+        bankTransfer: false
+      },
       checkoutUrl: invoice.checkoutUrl || `${window.location.origin}/?invoice=${id}`,
       createdAt: invoice.createdAt || now,
       updatedAt: now
     };
 
+    if (invoice.bankDetails) {
+      payload.bankDetails = cleanFirestoreData(invoice.bankDetails);
+    }
     if (invoice.cryptoAddresses) {
       payload.cryptoAddresses = cleanFirestoreData(invoice.cryptoAddresses);
     }
@@ -1001,13 +1380,13 @@ export async function saveInvoice(invoice: Partial<Invoice> & { recipientEmail: 
       localStorage.setItem('columbia_invoices_cache', JSON.stringify(updated));
     } catch {}
 
-    // Also update vendor application record if vendorApplicationId exists
+    // Also update vendor application + tracker record if vendorApplicationId exists
     if (invoice.vendorApplicationId) {
       try {
-        const updateStatus = invoice.status === 'paid' ? 'paid' : (invoice.status === 'sent' ? 'unpaid' : 'pending');
-        await updateDoc(doc(db, 'vendor_applications', invoice.vendorApplicationId), {
+        const updateStatus: PaymentStatus = invoice.status === 'paid' ? 'paid' : (invoice.status === 'under_review' ? 'pending' : 'unpaid');
+        await updateVendorApplicationStatus(invoice.vendorApplicationId, {
           paymentStatus: updateStatus,
-          updatedAt: now
+          invoiceNumber
         });
       } catch (err) {
         console.warn('Could not update vendor application payment status:', err);
@@ -1016,12 +1395,12 @@ export async function saveInvoice(invoice: Partial<Invoice> & { recipientEmail: 
 
     return cleanedPayload as Invoice;
   } catch (error) {
-    console.error('Error saving invoice:', error);
-    throw error;
+    handleFirestoreError(error, OperationType.WRITE, 'invoices');
   }
 }
 
 export async function updateInvoiceStatus(id: string, status: InvoiceStatus, paidAmount?: number): Promise<void> {
+  const path = `invoices/${id}`;
   try {
     const docRef = doc(db, 'invoices', id);
     const updateData: Record<string, any> = {
@@ -1038,6 +1417,19 @@ export async function updateInvoiceStatus(id: string, status: InvoiceStatus, pai
     await updateDoc(docRef, cleaned);
 
     try {
+      const invSnap = await getDoc(docRef);
+      const invData = invSnap.exists() ? (invSnap.data() as Invoice) : null;
+      if (invData?.vendorApplicationId && status === 'paid') {
+        await updateVendorApplicationStatus(invData.vendorApplicationId, {
+          paymentStatus: 'paid',
+          status: 'paid'
+        });
+      }
+    } catch (syncErr) {
+      console.warn('Could not sync invoice paid status to vendor app:', syncErr);
+    }
+
+    try {
       const cached = localStorage.getItem('columbia_invoices_cache');
       if (cached) {
         const existing = JSON.parse(cached);
@@ -1046,15 +1438,16 @@ export async function updateInvoiceStatus(id: string, status: InvoiceStatus, pai
       }
     } catch {}
   } catch (error) {
-    console.error('Error updating invoice status:', error);
-    throw error;
+    handleFirestoreError(error, OperationType.UPDATE, path);
   }
 }
 
 export async function submitInvoicePaymentProof(
   invoiceId: string, 
-  submission: InvoicePaymentSubmission
+  submission: InvoicePaymentSubmission,
+  vendorApplicationId?: string
 ): Promise<void> {
+  const path = `invoices/${invoiceId}`;
   try {
     const docRef = doc(db, 'invoices', invoiceId);
     const cleanedSubmission = cleanFirestoreData(submission);
@@ -1063,13 +1456,21 @@ export async function submitInvoicePaymentProof(
       paymentDetailsSubmitted: cleanedSubmission,
       updatedAt: new Date().toISOString()
     });
+
+    if (vendorApplicationId && submission.eTransferSecurityAnswer) {
+      await submitVendorETransferAnswer(
+        vendorApplicationId,
+        submission.eTransferSecurityAnswer,
+        submission.payerWalletOrHandle
+      );
+    }
   } catch (error) {
-    console.error('Error submitting payment proof:', error);
-    throw error;
+    handleFirestoreError(error, OperationType.UPDATE, path);
   }
 }
 
 export async function deleteInvoice(id: string): Promise<void> {
+  const path = `invoices/${id}`;
   try {
     await deleteDoc(doc(db, 'invoices', id));
     try {
@@ -1081,8 +1482,7 @@ export async function deleteInvoice(id: string): Promise<void> {
       }
     } catch {}
   } catch (error) {
-    console.error('Error deleting invoice:', error);
-    throw error;
+    handleFirestoreError(error, OperationType.DELETE, path);
   }
 }
 

@@ -17,12 +17,14 @@ interface HeroProps {
   onOpenAttendeeModal: () => void;
   onScrollToVendorBooking: () => void;
   onOpenVendorModal?: () => void;
+  onOpenTrackerModal?: () => void;
 }
 
 export const Hero: React.FC<HeroProps> = ({
   onOpenAttendeeModal,
   onScrollToVendorBooking,
-  onOpenVendorModal
+  onOpenVendorModal,
+  onOpenTrackerModal
 }) => {
   const scrollToExperience = () => {
     const el = document.getElementById('experience');
@@ -87,7 +89,7 @@ export const Hero: React.FC<HeroProps> = ({
               </div>
 
               {/* Quiet Exhibitor Bridge */}
-              <div className="pt-1 flex flex-wrap items-center gap-2 text-xs text-[#6B6658]">
+              <div className="pt-1 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-[#6B6658]">
                 <span>Hosting a craft booth or food truck?</span>
                 <button
                   id="hero-apply-vendor-btn"
@@ -98,6 +100,19 @@ export const Hero: React.FC<HeroProps> = ({
                   <Store className="w-3.5 h-3.5" />
                   <span>Apply for Vendor Space</span>
                 </button>
+                {onOpenTrackerModal && (
+                  <>
+                    <span aria-hidden="true" className="text-[#C8C2B4]">&middot;</span>
+                    <button
+                      id="hero-track-vendor-btn"
+                      type="button"
+                      onClick={onOpenTrackerModal}
+                      className="font-semibold text-[#5A5A40] hover:text-[#3D3A30] underline underline-offset-4 cursor-pointer"
+                    >
+                      Track Application &amp; E-Transfer
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 

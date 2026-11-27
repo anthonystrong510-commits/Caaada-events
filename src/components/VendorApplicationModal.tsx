@@ -19,17 +19,19 @@ import {
   ExternalLink,
   Eye
 } from 'lucide-react';
-import { BOOTH_TIERS, EVENT_CONFIG, FESTIVAL_CONTACT_EMAIL, FESTIVAL_DAYS, MARKET_CATEGORIES } from '../data/festivalData';
-import { BoothId, VendorFormData, VENDOR_KIND_OPTIONS } from '../types';
-import { createVendorApplication } from '../lib/firebase';
+import { BOOTH_TIERS, EVENT_CONFIG, FESTIVAL_CONTACT_EMAIL, FESTIVAL_DAYS } from '../data/festivalData';
+import { BoothId, FestivalConfigData, OTHER_VENDOR_CATEGORY_VALUE, PaymentConfig, UNIFIED_VENDOR_CATEGORY_OPTIONS, VendorFormData } from '../types';
+import { createVendorApplication, submitVendorETransferAnswer, DEFAULT_ETRANSFER_EMAIL } from '../lib/firebase';
 import { sendVendorApplicationReceivedEmail } from '../lib/emailService';
-import { GreenCheckboxIcon } from './TypesOfVendorBadge';
 
 interface VendorApplicationModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialBoothId?: BoothId;
   initialDays?: Array<'fri' | 'sat' | 'sun'>;
+  festivalConfig?: FestivalConfigData;
+  paymentConfig?: PaymentConfig;
+  onOpenTracker?: (applicationId: string) => void;
 }
 
 export const VendorApplicationModal: React.FC<VendorApplicationModalProps> = ({
@@ -37,9 +39,21 @@ export const VendorApplicationModal: React.FC<VendorApplicationModalProps> = ({
   onClose,
   initialBoothId = 'tent-10x10',
   initialDays = ['fri', 'sat', 'sun'],
+  festivalConfig,
+  paymentConfig,
+  onOpenTracker,
 }) => {
   const [selectedBoothId, setSelectedBoothId] = useState<BoothId>(initialBoothId);
   const [selectedDays, setSelectedDays] = useState<Array<'fri' | 'sat' | 'sun'>>(initialDays);
+  const followUpEmail = (
+    festivalConfig?.vendorFollowUpEmail?.trim() ||
+    festivalConfig?.contactEmail?.trim() ||
+    FESTIVAL_CONTACT_EMAIL
+  );
+  const eTransferEmail = (
+    paymentConfig?.eTransferEmail?.trim() ||
+    DEFAULT_ETRANSFER_EMAIL
+  );
 
   const [formData, setFormData] = useState<VendorFormData>({
     businessName: '',
@@ -48,7 +62,7 @@ export const VendorApplicationModal: React.FC<VendorApplicationModalProps> = ({
     phone: '',
     website: '',
     vendorKind: 'Certified Farmer',
-    category: 'Handmade Crafts & Fine Art',
+    category: 'Certified Farmer',
     selectedBoothId: initialBoothId,
     selectedDays: initialDays,
     productDescription: '',
@@ -62,6 +76,8 @@ export const VendorApplicationModal: React.FC<VendorApplicationModalProps> = ({
     agreedToTerms: false,
   });
 
+  const [customVendorCategory, setCustomVendorCategory] = useState('');
+
   const [submittedApplication, setSubmittedApplication] = useState<{
     id: string;
     date: string;
@@ -72,6 +88,13 @@ export const VendorApplicationModal: React.FC<VendorApplicationModalProps> = ({
   } | null>(null);
 
   const [copied, setCopied] = useState(false);
+  const [copiedEmail, setCopiedEmail] = useState(false);
+  const [copiedFollowUpEmail, setCopiedFollowUpEmail] = useState(false);
+  const [eTransferAnswer, setETransferAnswer] = useState('');
+  const [eTransferPayerEmail, setETransferPayerEmail] = useState('');
+  const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false);
+  const [answerSubmitted, setAnswerSubmitted] = useState(false);
+  const [answerError, setAnswerError] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [emailStatus, setEmailStatus] = useState<{ 
     sent: boolean; 
@@ -109,11 +132,18 @@ export const VendorApplicationModal: React.FC<VendorApplicationModalProps> = ({
   if (!isOpen) return null;
 
   const selectedTier = BOOTH_TIERS.find((b) => b.id === selectedBoothId) || BOOTH_TIERS[0];
+  const isOtherVendorCategory =
+    formData.vendorKind === OTHER_VENDOR_CATEGORY_VALUE ||
+    formData.category === OTHER_VENDOR_CATEGORY_VALUE;
+  const resolvedVendorTypeAndCategory = (
+    isOtherVendorCategory
+      ? customVendorCategory.trim()
+      : (formData.vendorKind || formData.category)
+  );
   const isFoodCategory =
     selectedTier.id === 'food-truck' ||
-    formData.category.toLowerCase().includes('food') ||
-    formData.vendorKind === 'Prepared Food' ||
-    formData.vendorKind === 'Prepackaged Food' ||
+    resolvedVendorTypeAndCategory.toLowerCase().includes('food') ||
+    resolvedVendorTypeAndCategory.toLowerCase().includes('bakery') ||
     formData.isFoodVendor;
 
   // Toggle Day Selection (Any combination allowed)
@@ -147,13 +177,19 @@ export const VendorApplicationModal: React.FC<VendorApplicationModalProps> = ({
     }));
   };
 
-  const handleVendorKindSelect = (kind: string) => {
-    const isFood = kind === 'Prepared Food' || kind === 'Prepackaged Food';
+  const handleUnifiedVendorCategorySelect = (value: string) => {
+    const isFood =
+      value.toLowerCase().includes('food') ||
+      value.toLowerCase().includes('bakery');
     setFormData((prev) => ({
       ...prev,
-      vendorKind: kind,
+      vendorKind: value,
+      category: value,
       isFoodVendor: isFood ? true : prev.isFoodVendor,
     }));
+    if (value !== OTHER_VENDOR_CATEGORY_VALUE) {
+      setCustomVendorCategory('');
+    }
     setErrorMsg(null);
   };
 
@@ -162,6 +198,11 @@ export const VendorApplicationModal: React.FC<VendorApplicationModalProps> = ({
   ) => {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
+
+    if (name === 'vendorKind' || name === 'category') {
+      handleUnifiedVendorCategorySelect(value);
+      return;
+    }
 
     setFormData((prev) => ({
       ...prev,
@@ -184,6 +225,10 @@ export const VendorApplicationModal: React.FC<VendorApplicationModalProps> = ({
 
     if (!formData.vendorKind || !formData.vendorKind.trim()) {
       setErrorMsg('Please select "What Kind Of Vendor Are You? *"');
+      return;
+    }
+    if (isOtherVendorCategory && !customVendorCategory.trim()) {
+      setErrorMsg('Please enter your custom vendor type / marketplace category under "Other".');
       return;
     }
     if (!formData.businessName.trim()) {
@@ -226,7 +271,8 @@ export const VendorApplicationModal: React.FC<VendorApplicationModalProps> = ({
       year: 'numeric',
     });
 
-    const emailSubject = `Vendor Application [${appId}]: ${formData.businessName} (${formData.vendorKind}) - ${selectedTier.name}`;
+    const finalVendorCategory = resolvedVendorTypeAndCategory || 'Certified Farmer';
+    const emailSubject = `Vendor Application [${appId}]: ${formData.businessName} (${finalVendorCategory}) - ${selectedTier.name}`;
     const emailBody = `${EVENT_CONFIG.name.toUpperCase()}
 OFFICIAL VENDOR APPLICATION
 
@@ -242,8 +288,8 @@ Contact Person: ${formData.contactName}
 Email: ${formData.email}
 Phone: ${formData.phone}
 Website / Social: ${formData.website || 'N/A'}
-What Kind Of Vendor Are You?: ${formData.vendorKind}
-Vendor Category: ${formData.category}
+What Kind Of Vendor Are You?: ${finalVendorCategory}
+Marketplace Category: ${finalVendorCategory}
 
 ===========================================
 2. BOOTH & DATES RESERVATION
@@ -261,7 +307,7 @@ Product Description:
 ${formData.productDescription}
 
 Photo Links for Directory Feature: 
-${formData.photoLinks || 'Will email high-res photos to festvendorstate@gmail.com separately'}
+${formData.photoLinks || `Will email high-res photos to ${followUpEmail} separately`}
 
 ===========================================
 4. SPECIAL REQUIREMENTS & PERMITS
@@ -288,7 +334,13 @@ Please review my registration and send confirmation and payment instructions to 
       totalCost,
       emailBody,
       emailSubject,
-      data: { ...formData, selectedBoothId, selectedDays },
+      data: {
+        ...formData,
+        vendorKind: finalVendorCategory,
+        category: finalVendorCategory,
+        selectedBoothId,
+        selectedDays,
+      },
     });
 
     const appPayload = {
@@ -298,8 +350,8 @@ Please review my registration and send confirmation and payment instructions to 
       email: formData.email,
       phone: formData.phone,
       website: formData.website || '',
-      vendorKind: formData.vendorKind || 'Certified Farmer',
-      category: formData.category,
+      vendorKind: finalVendorCategory,
+      category: finalVendorCategory,
       selectedBoothId,
       selectedDays,
       productDescription: formData.productDescription,
@@ -355,6 +407,46 @@ Please review my registration and send confirmation and payment instructions to 
     navigator.clipboard.writeText(submittedApplication.emailBody);
     setCopied(true);
     setTimeout(() => setCopied(false), 3000);
+  };
+
+  const copyFollowUpEmail = () => {
+    if (!eTransferEmail) return;
+    navigator.clipboard.writeText(eTransferEmail);
+    setCopiedEmail(true);
+    setTimeout(() => setCopiedEmail(false), 3000);
+  };
+
+  const copyOrganizerFollowUpEmail = () => {
+    if (!followUpEmail) return;
+    navigator.clipboard.writeText(followUpEmail);
+    setCopiedFollowUpEmail(true);
+    setTimeout(() => setCopiedFollowUpEmail(false), 3000);
+  };
+
+  const handleSubmitInlineSecurityAnswer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!submittedApplication) return;
+    const cleanAnswer = eTransferAnswer.trim();
+    if (!cleanAnswer) {
+      setAnswerError('Please enter the answer to your E-Transfer security question or confirmation details.');
+      return;
+    }
+
+    setIsSubmittingAnswer(true);
+    setAnswerError(null);
+    try {
+      await submitVendorETransferAnswer(
+        submittedApplication.id,
+        cleanAnswer,
+        eTransferPayerEmail.trim() || submittedApplication.data.email
+      );
+      setAnswerSubmitted(true);
+    } catch (err) {
+      console.error('Failed to submit E-Transfer security answer:', err);
+      setAnswerError('Could not save your security answer. Please retry or submit it in the Application Tracker.');
+    } finally {
+      setIsSubmittingAnswer(false);
+    }
   };
 
   return (
@@ -418,37 +510,54 @@ Please review my registration and send confirmation and payment instructions to 
 
             <form onSubmit={handleSubmit} className="space-y-6">
               
-              {/* What Kind Of Vendor Are You? * Interactive Selector */}
+              {/* What Kind Of Vendor Are You? * Unified Dropdown + Custom Other Field */}
               <div className="p-4 rounded-2xl bg-[#FAF8F5] border border-[#E8E2D6] space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs sm:text-sm font-bold text-[#3D3A30] block">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <label htmlFor="vendor-kind-select" className="text-xs sm:text-sm font-bold text-[#3D3A30] block">
                     What Kind Of Vendor Are You? <span className="text-rose-600">*</span>
                   </label>
                   <span className="text-[11px] font-semibold text-[#5A5A40]">
-                    Select Your Vendor Type
+                    Synced with Marketplace Category
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {VENDOR_KIND_OPTIONS.map((kind) => {
-                    const isSelected = formData.vendorKind === kind;
-                    return (
-                      <button
-                        type="button"
-                        key={kind}
-                        onClick={() => handleVendorKindSelect(kind)}
-                        className={`p-2.5 rounded-xl border text-left transition-all flex items-center gap-2.5 text-xs font-semibold ${
-                          isSelected
-                            ? 'bg-[#5A5A40] text-white border-[#5A5A40] shadow-sm'
-                            : 'bg-white text-[#3D3A30] border-[#E8E2D6] hover:bg-[#F0EBE0]/60'
-                        }`}
-                      >
-                        <GreenCheckboxIcon checked={isSelected} className="w-4 h-4" />
-                        <span className="leading-snug">{kind}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+                <select
+                  id="vendor-kind-select"
+                  name="vendorKind"
+                  required
+                  value={formData.vendorKind || ''}
+                  onChange={handleInputChange}
+                  className="w-full px-3.5 py-2.5 rounded-full border border-[#E8E2D6] bg-white text-xs sm:text-sm font-medium text-[#3D3A30] focus:border-[#5A5A40] outline-none"
+                >
+                  {UNIFIED_VENDOR_CATEGORY_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option === OTHER_VENDOR_CATEGORY_VALUE
+                        ? 'Other (Not listed — specify custom vendor type)'
+                        : option}
+                    </option>
+                  ))}
+                </select>
+
+                {isOtherVendorCategory && (
+                  <div className="pt-2 space-y-1.5">
+                    <label htmlFor="custom-vendor-category-input" className="block text-[11px] font-bold text-[#5A5A40]">
+                      Other — Enter Your Custom Vendor Type / Category <span className="text-rose-600">*</span>
+                    </label>
+                    <input
+                      id="custom-vendor-category-input"
+                      type="text"
+                      required
+                      maxLength={90}
+                      placeholder="e.g. Vinyl Records, Custom Embroidery, Bonsai Trees..."
+                      value={customVendorCategory}
+                      onChange={(e) => {
+                        setCustomVendorCategory(e.target.value);
+                        setErrorMsg(null);
+                      }}
+                      className="w-full px-3.5 py-2.5 rounded-full border border-[#5A5A40] bg-white text-xs text-[#3D3A30] focus:ring-2 focus:ring-[#5A5A40]/20 outline-none"
+                    />
+                  </div>
+                )}
               </div>
 
               {/* SECTION 1: Booth Tier Selection */}
@@ -647,22 +756,47 @@ Please review my registration and send confirmation and payment instructions to 
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold uppercase text-[#3D3A30] mb-1">
+                    <label htmlFor="marketplace-category-select" className="block text-[11px] font-bold uppercase text-[#3D3A30] mb-1">
                       Marketplace Category <span className="text-rose-500">*</span>
                     </label>
                     <select
+                      id="marketplace-category-select"
                       name="category"
+                      required
                       value={formData.category}
                       onChange={handleInputChange}
                       className="w-full px-3.5 py-2 rounded-full border border-[#E8E2D6] bg-white text-xs text-[#3D3A30] focus:border-[#5A5A40] outline-none"
                     >
-                      {MARKET_CATEGORIES.map((c) => (
-                        <option key={c.id} value={c.name}>
-                          {c.name}
+                      {UNIFIED_VENDOR_CATEGORY_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          {option === OTHER_VENDOR_CATEGORY_VALUE
+                            ? 'Other (Not listed — specify custom category)'
+                            : option}
                         </option>
                       ))}
                     </select>
                   </div>
+
+                  {isOtherVendorCategory && (
+                    <div className="sm:col-span-2">
+                      <label htmlFor="custom-marketplace-category-input" className="block text-[11px] font-bold uppercase text-[#5A5A40] mb-1">
+                        Other — Specify Custom Marketplace Category <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        id="custom-marketplace-category-input"
+                        type="text"
+                        required
+                        maxLength={90}
+                        placeholder="Describe your custom category if not listed above..."
+                        value={customVendorCategory}
+                        onChange={(e) => {
+                          setCustomVendorCategory(e.target.value);
+                          setErrorMsg(null);
+                        }}
+                        className="w-full px-3.5 py-2 rounded-full border border-[#5A5A40] bg-white text-xs text-[#3D3A30] focus:ring-2 focus:ring-[#5A5A40]/20 outline-none"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -701,7 +835,7 @@ Please review my registration and send confirmation and payment instructions to 
                       className="w-full px-3.5 py-2 rounded-full border border-[#E8E2D6] bg-white text-xs text-[#3D3A30] focus:border-[#5A5A40] outline-none"
                     />
                     <p className="text-[10px] text-[#7A7566] mt-1">
-                      You may also email high-res product photos to <strong className="font-mono">{FESTIVAL_CONTACT_EMAIL}</strong> for festival guide features.
+                      You may also email high-res product photos to <strong className="font-mono">{followUpEmail}</strong> for festival guide features.
                     </p>
                   </div>
                 </div>
@@ -819,7 +953,7 @@ Please review my registration and send confirmation and payment instructions to 
                 </button>
 
                 <p className="text-[11px] text-center text-[#7A7566] mt-2">
-                  Upon submission, your registration details are formatted and pre-addressed to <strong className="font-mono">{FESTIVAL_CONTACT_EMAIL}</strong> for prompt processing.
+                  Upon submission, your registration details are formatted and routed to <strong className="font-mono">{followUpEmail}</strong> for review.
                 </p>
               </div>
 
@@ -844,6 +978,171 @@ Please review my registration and send confirmation and payment instructions to 
               <p className="text-xs sm:text-sm text-[#6B6658] mt-1 max-w-lg mx-auto">
                 Your application for <strong>{submittedApplication.data.businessName}</strong> has been logged with Reference ID <strong className="font-mono text-[#5A5A40]">{submittedApplication.id}</strong>.
               </p>
+            </div>
+
+            {/* Mandatory Organizer Follow-Up Email Card for Faster Processing */}
+            <div className="bg-amber-50/80 border border-amber-300 rounded-2xl p-4 sm:p-5 text-left shadow-xs space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-[#3D3A30] text-white flex items-center justify-center shrink-0 mt-0.5">
+                  <Mail className="w-4 h-4 text-amber-200" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-amber-900">
+                    Required Step &bull; Faster Application Processing
+                  </div>
+                  <h4 className="text-sm font-bold text-[#3D3A30] mt-0.5">
+                    Send a Follow-Up Email to Confirm Your Application
+                  </h4>
+                  <p className="text-xs text-[#4F4A3E] mt-1 leading-relaxed">
+                    To prioritize your review and speed up booth assignment, vendors <strong>must send a quick follow-up email</strong> containing your Reference ID (<strong className="font-mono">{submittedApplication.id}</strong>) and Business Name (<strong className="text-[#3D3A30]">{submittedApplication.data.businessName}</strong>) to the address below:
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-white border border-amber-200 rounded-xl p-2.5">
+                <div className="flex-1 px-2 py-1 min-w-0">
+                  <span className="text-[10px] uppercase tracking-wider font-bold text-[#7A7566] block">
+                    Follow-Up Review Email (Must Email For Faster Processing)
+                  </span>
+                  <span className="font-mono text-xs sm:text-sm font-bold text-[#3D3A30] break-all select-all">
+                    {followUpEmail}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    id="copy-mandatory-followup-email-btn"
+                    onClick={copyOrganizerFollowUpEmail}
+                    className="px-4 py-2 rounded-xl bg-[#3D3A30] hover:bg-[#2B2921] text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-xs cursor-pointer"
+                  >
+                    {copiedFollowUpEmail ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedFollowUpEmail ? 'Copied Email!' : 'Copy Follow-Up Email'}</span>
+                  </button>
+                  <a
+                    href={`mailto:${encodeURIComponent(followUpEmail)}?subject=${encodeURIComponent(`Follow-Up for Faster Processing [${submittedApplication.id}]: ${submittedApplication.data.businessName}`)}&body=${encodeURIComponent(`Hello Organizer Team,\n\nI am following up on my vendor booth application for faster processing:\n\nReference ID: ${submittedApplication.id}\nBusiness Name: ${submittedApplication.data.businessName}\nVendor Type / Category: ${submittedApplication.data.vendorKind || submittedApplication.data.category}\nBooth Space: ${selectedTier.name}\nTotal Calculated Fee: $${submittedApplication.totalCost}\n\nThank you!`)}`}
+                    className="px-3.5 py-2 rounded-xl bg-white hover:bg-amber-100/70 border border-amber-300 text-[#3D3A30] text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Open Email</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            {/* E-Transfer Booth Payment & Security Answer Submission Card */}
+            <div className="bg-white border-2 border-[#5A5A40]/30 rounded-2xl p-4 sm:p-5 text-left shadow-xs space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-[#5A5A40] text-white flex items-center justify-center shrink-0 mt-0.5">
+                  <Send className="w-4 h-4 text-[#F0EBE0]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-sm font-bold text-[#3D3A30]">
+                    Booth Reservation Payment via E-Transfer
+                  </h4>
+                  <p className="text-xs text-[#6B6658] mt-1 leading-relaxed">
+                    Payments for booth reservations are processed through E-Transfer. Please send your E-Transfer payment of{' '}
+                    <strong className="text-[#3D3A30] tabular-nums">${submittedApplication.totalCost}</strong> to:
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-[#FAF8F5] border border-[#E8E2D6] rounded-xl p-2.5">
+                <div className="flex-1 px-2 py-1 min-w-0">
+                  <span className="text-[10px] uppercase tracking-wider font-bold text-[#7A7566] block">
+                    Send E-Transfer Payment To
+                  </span>
+                  <span className="font-mono text-xs sm:text-sm font-bold text-[#3D3A30] break-all select-all">
+                    {eTransferEmail}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    id="copy-followup-email-btn"
+                    onClick={copyFollowUpEmail}
+                    className="px-4 py-2 rounded-xl bg-[#5A5A40] hover:bg-[#464632] text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-xs cursor-pointer"
+                  >
+                    {copiedEmail ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedEmail ? 'Copied Email!' : 'Copy Email'}</span>
+                  </button>
+                  <a
+                    href={`mailto:${encodeURIComponent(eTransferEmail)}?subject=${encodeURIComponent(`E-Transfer Confirmation: ${submittedApplication.id} - ${submittedApplication.data.businessName}`)}`}
+                    className="px-3.5 py-2 rounded-xl bg-white hover:bg-[#F0EBE0] border border-[#E8E2D6] text-[#5A5A40] text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <Mail className="w-3.5 h-3.5" />
+                    <span>Email Now</span>
+                  </a>
+                </div>
+              </div>
+
+              <p className="text-xs text-[#6B6658] leading-relaxed">
+                After completing your payment, kindly send us the answer to your security question (or confirmation details if no security question is required) so we can verify your payment and confirm your booth reservation. Thank you, and we look forward to having you at the event.
+              </p>
+
+              {/* Inline Security Answer Form */}
+              <form onSubmit={handleSubmitInlineSecurityAnswer} className="pt-3 border-t border-[#E8E2D6] space-y-2.5">
+                {answerSubmitted ? (
+                  <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-start gap-2">
+                    <CheckCircle className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold block">Security Answer Submitted for Verification</span>
+                      <span className="text-[11px] text-emerald-800">
+                        Logged reference: <strong className="font-mono">{eTransferAnswer}</strong>. Our team will verify your E-Transfer and confirm your booth.
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {answerError && (
+                      <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700">
+                        {answerError}
+                      </div>
+                    )}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-[11px] font-bold text-[#3D3A30] mb-1">
+                          Security Question Answer / Confirmation Details *
+                        </label>
+                        <input
+                          type="text"
+                          value={eTransferAnswer}
+                          onChange={(e) => {
+                            setETransferAnswer(e.target.value);
+                            setAnswerError(null);
+                          }}
+                          placeholder="e.g. Festival2026 or Autodeposit ref"
+                          className="w-full px-3.5 py-2 rounded-xl border border-[#E8E2D6] bg-[#FAF8F5] text-xs text-[#3D3A30] focus:border-[#5A5A40] outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-[#3D3A30] mb-1">
+                          E-Transfer Sender Email (Optional)
+                        </label>
+                        <input
+                          type="email"
+                          value={eTransferPayerEmail}
+                          onChange={(e) => setETransferPayerEmail(e.target.value)}
+                          placeholder={submittedApplication.data.email}
+                          className="w-full px-3.5 py-2 rounded-xl border border-[#E8E2D6] bg-[#FAF8F5] text-xs text-[#3D3A30] focus:border-[#5A5A40] outline-none"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                      <span className="text-[11px] text-[#7A7566]">
+                        You can also submit or check payment status anytime using your Reference ID.
+                      </span>
+                      <button
+                        type="submit"
+                        disabled={isSubmittingAnswer}
+                        className="px-4 py-2 rounded-xl bg-[#5A5A40] hover:bg-[#464632] text-white text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-60 cursor-pointer"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        <span>{isSubmittingAnswer ? 'Submitting...' : 'Submit Security Answer'}</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </form>
             </div>
 
             {/* Automated Email Confirmation Banner */}
@@ -984,10 +1283,20 @@ Please review my registration and send confirmation and payment instructions to 
 
             {/* Actions */}
             <div className="flex flex-col sm:flex-row gap-2.5">
+              {onOpenTracker && (
+                <button
+                  type="button"
+                  onClick={() => onOpenTracker(submittedApplication.id)}
+                  className="flex-1 py-3 rounded-full text-xs font-bold uppercase tracking-wider text-[#3D3A30] bg-white border border-[#E8E2D6] hover:bg-[#F0EBE0] transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Eye className="w-4 h-4 text-[#5A5A40]" />
+                  <span>Track Application &amp; E-Transfer</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="flex-1 py-3 rounded-full text-xs font-bold uppercase tracking-wider text-[#5A5A40] bg-[#F0EBE0] hover:bg-[#E8E2D6] transition-colors flex items-center justify-center gap-2"
+                className="flex-1 py-3 rounded-full text-xs font-bold uppercase tracking-wider text-[#5A5A40] bg-[#F0EBE0] hover:bg-[#E8E2D6] transition-colors flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Printer className="w-4 h-4" />
                 <span>Print Application Receipt</span>
@@ -995,7 +1304,7 @@ Please review my registration and send confirmation and payment instructions to 
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 py-3 rounded-full text-xs font-bold uppercase tracking-wider text-white bg-[#5A5A40] hover:bg-[#464632] transition-colors"
+                className="flex-1 py-3 rounded-full text-xs font-bold uppercase tracking-wider text-white bg-[#5A5A40] hover:bg-[#464632] transition-colors cursor-pointer"
               >
                 Done / Back to Festival
               </button>

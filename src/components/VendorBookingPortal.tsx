@@ -19,6 +19,7 @@ import { TypesOfVendorBadge } from './TypesOfVendorBadge';
 
 interface VendorBookingPortalProps {
   onOpenVendorModal: (boothId?: BoothId, days?: Array<'fri' | 'sat' | 'sun'>) => void;
+  onOpenTrackerModal?: () => void;
 }
 
 const VENDOR_RESERVATION_FAQS = [
@@ -49,7 +50,10 @@ const VENDOR_RESERVATION_FAQS = [
   }
 ];
 
-export const VendorBookingPortal: React.FC<VendorBookingPortalProps> = ({ onOpenVendorModal }) => {
+export const VendorBookingPortal: React.FC<VendorBookingPortalProps> = ({
+  onOpenVendorModal,
+  onOpenTrackerModal
+}) => {
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
   const [showVendorTypes, setShowVendorTypes] = useState<boolean>(false);
 
@@ -206,21 +210,33 @@ export const VendorBookingPortal: React.FC<VendorBookingPortalProps> = ({ onOpen
                 </p>
               </div>
 
-              {/* Single Apply Button */}
+              {/* Single Apply Button + Tracker Link */}
               <div className="space-y-2.5">
                 <button
                   type="button"
                   id="main-apply-vendor-btn"
                   onClick={() => onOpenVendorModal('tent-10x10')}
-                  className="w-full py-4 rounded-full font-bold uppercase tracking-wider text-xs sm:text-sm text-[#5A5A40] bg-white hover:bg-[#F0EBE0] shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                  className="w-full py-4 rounded-full font-bold uppercase tracking-wider text-xs sm:text-sm text-[#5A5A40] bg-white hover:bg-[#F0EBE0] shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Store className="w-4 h-4 text-[#5A5A40]" />
                   <span>Apply for Vendor Space</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
 
+                {onOpenTrackerModal && (
+                  <button
+                    type="button"
+                    id="booking-track-vendor-btn"
+                    onClick={onOpenTrackerModal}
+                    className="w-full py-2.5 rounded-full font-bold uppercase tracking-wider text-[11px] text-[#F0EBE0] bg-white/10 hover:bg-white/20 border border-white/20 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Search className="w-3.5 h-3.5" />
+                    <span>Track Application &amp; Submit E-Transfer Answer</span>
+                  </button>
+                )}
+
                 <p className="text-[10px] text-center text-[#E8E2D6]">
-                  Opens pop-up form with tier selection & instant rate calculator.
+                  Opens pop-up form with tier selection &amp; instant rate calculator.
                 </p>
               </div>
 

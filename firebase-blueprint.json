@@ -7,7 +7,8 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the application"
+          "description": "Unique identifier for the application",
+          "maxLength": 128
         },
         "businessName": {
           "type": "string",
@@ -35,6 +36,11 @@
           "description": "Business website, Instagram, or social link",
           "maxLength": 200
         },
+        "vendorKind": {
+          "type": "string",
+          "description": "Vendor type classification",
+          "maxLength": 100
+        },
         "category": {
           "type": "string",
           "description": "Vendor product category",
@@ -47,7 +53,7 @@
         },
         "selectedDays": {
           "type": "array",
-          "description": "List of festival days selected for booking"
+          "description": "List of festival days selected for booking (1 to 3 days)"
         },
         "productDescription": {
           "type": "string",
@@ -108,16 +114,113 @@
           "description": "Internal organizer review notes",
           "maxLength": 1000
         },
+        "paymentStatus": {
+          "type": "string",
+          "enum": ["unpaid", "paid", "waived", "pending"],
+          "description": "Invoice payment status for this application"
+        },
+        "invoiceNumber": {
+          "type": "string",
+          "description": "Associated invoice reference number",
+          "maxLength": 50
+        },
+        "eTransferSecurityAnswer": {
+          "type": "string",
+          "description": "E-Transfer security question answer or confirmation details submitted by vendor",
+          "maxLength": 500
+        },
+        "eTransferPayerEmail": {
+          "type": "string",
+          "description": "Sender email used for E-Transfer",
+          "maxLength": 150
+        },
+        "eTransferSubmittedAt": {
+          "type": "string",
+          "description": "ISO timestamp when E-Transfer security answer was submitted",
+          "maxLength": 40
+        },
         "createdAt": {
           "type": "string",
-          "description": "Timestamp when application was submitted"
+          "description": "ISO timestamp when application was submitted",
+          "maxLength": 40
         },
         "updatedAt": {
           "type": "string",
-          "description": "Timestamp when application was last modified"
+          "description": "ISO timestamp when application was last modified",
+          "maxLength": 40
         }
       },
       "required": ["businessName", "contactName", "email", "category", "selectedBoothId", "selectedDays", "status", "createdAt"]
+    },
+    "VendorTracker": {
+      "title": "VendorTracker",
+      "description": "Non-PII public status & E-Transfer verification record for vendor application tracking.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "businessName": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "vendorKind": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "category": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "selectedBoothId": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "selectedDays": {
+          "type": "array"
+        },
+        "totalCalculatedFee": {
+          "type": "number"
+        },
+        "boothZoneAssignment": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "approved", "rejected", "waitlist", "paid"]
+        },
+        "paymentStatus": {
+          "type": "string",
+          "enum": ["unpaid", "pending", "paid", "waived"]
+        },
+        "emailHash": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "eTransferSecurityAnswer": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "eTransferPayerEmail": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "eTransferSubmittedAt": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "createdAt": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "updatedAt": {
+          "type": "string",
+          "maxLength": 40
+        }
+      },
+      "required": ["id", "businessName", "category", "selectedBoothId", "selectedDays", "status", "paymentStatus", "emailHash", "createdAt"]
     },
     "AttendeeRsvp": {
       "title": "AttendeeRsvp",
@@ -126,7 +229,8 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the RSVP"
+          "description": "Unique identifier for the RSVP",
+          "maxLength": 128
         },
         "name": {
           "type": "string",
@@ -161,7 +265,8 @@
         },
         "checkedInAt": {
           "type": "string",
-          "description": "Timestamp of gate check-in"
+          "description": "ISO timestamp of gate check-in",
+          "maxLength": 40
         },
         "passCode": {
           "type": "string",
@@ -170,23 +275,26 @@
         },
         "createdAt": {
           "type": "string",
-          "description": "Timestamp when RSVP was registered"
+          "description": "ISO timestamp when RSVP was registered",
+          "maxLength": 40
         },
         "updatedAt": {
           "type": "string",
-          "description": "Timestamp when RSVP was last updated"
+          "description": "ISO timestamp when RSVP was last updated",
+          "maxLength": 40
         }
       },
       "required": ["name", "email", "daysAttending", "groupSize", "createdAt"]
     },
     "FestivalConfig": {
       "title": "FestivalConfig",
-      "description": "Global festival configuration, venue details, and public admission settings.",
+      "description": "Global festival configuration, venue details, SEO metadata, and public admission settings.",
       "type": "object",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Configuration document ID"
+          "description": "Configuration document ID",
+          "maxLength": 128
         },
         "name": {
           "type": "string",
@@ -256,14 +364,44 @@
           "type": "string",
           "maxLength": 150
         },
+        "vendorFollowUpEmail": {
+          "type": "string",
+          "description": "Admin-configured email address shown to vendors after submitting an application for follow-up messages",
+          "maxLength": 150
+        },
         "freeAdmission": {
           "type": "boolean"
         },
         "active": {
           "type": "boolean"
         },
+        "siteDomain": {
+          "type": "string",
+          "maxLength": 250
+        },
+        "websiteUrl": {
+          "type": "string",
+          "maxLength": 250
+        },
+        "seoTitle": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "seoDescription": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "seoKeywords": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "datingKeywords": {
+          "type": "string",
+          "maxLength": 300
+        },
         "updatedAt": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 40
         }
       },
       "required": ["name", "contactEmail", "updatedAt"]
@@ -274,7 +412,8 @@
       "type": "object",
       "properties": {
         "id": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 128
         },
         "key": {
           "type": "string",
@@ -286,6 +425,7 @@
         },
         "category": {
           "type": "string",
+          "enum": ["vendor", "attendee", "broadcast", "billing", "custom"],
           "maxLength": 100
         },
         "subject": {
@@ -317,7 +457,8 @@
           "type": "boolean"
         },
         "updatedAt": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 40
         }
       },
       "required": ["key", "title", "subject", "htmlBody", "updatedAt"]
@@ -328,7 +469,8 @@
       "type": "object",
       "properties": {
         "id": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 128
         },
         "host": {
           "type": "string",
@@ -378,8 +520,17 @@
         "isEnabled": {
           "type": "boolean"
         },
+        "testStatus": {
+          "type": "string",
+          "enum": ["idle", "success", "failed", "testing"]
+        },
+        "lastTestedAt": {
+          "type": "string",
+          "maxLength": 40
+        },
         "updatedAt": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 40
         }
       },
       "required": ["host", "port", "fromEmail", "updatedAt"]
@@ -390,7 +541,8 @@
       "type": "object",
       "properties": {
         "id": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 128
         },
         "email": {
           "type": "string",
@@ -406,7 +558,8 @@
           "enum": ["superadmin", "admin"]
         },
         "createdAt": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 40
         }
       },
       "required": ["email", "role"]
@@ -417,7 +570,8 @@
       "type": "object",
       "properties": {
         "id": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 128
         },
         "recipientEmail": {
           "type": "string",
@@ -444,6 +598,14 @@
           "type": "string",
           "maxLength": 25000
         },
+        "renderedHtml": {
+          "type": "string",
+          "maxLength": 25000
+        },
+        "renderedPlain": {
+          "type": "string",
+          "maxLength": 10000
+        },
         "status": {
           "type": "string",
           "enum": ["delivered", "simulated", "failed", "pending"]
@@ -452,18 +614,50 @@
           "type": "number"
         },
         "sentAt": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 40
+        },
+        "previewUrl": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "method": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "error": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "meta": {
+          "type": "object"
         }
       },
       "required": ["recipientEmail", "subject", "status", "sentAt"]
     },
     "PaymentConfig": {
       "title": "PaymentConfig",
-      "description": "Festival payment gateway configuration including sponsor crypto (Kraken, CashApp) and on-chain addresses (USDT, ETH, BTC).",
+      "description": "Festival payment configuration featuring E-Transfer recipient email and booth reservation payment instructions.",
       "type": "object",
       "properties": {
         "id": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 128
+        },
+        "eTransferEnabled": {
+          "type": "boolean"
+        },
+        "eTransferEmail": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "eTransferRecipientName": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "eTransferInstructions": {
+          "type": "string",
+          "maxLength": 2000
         },
         "usdtTrc20": {
           "type": "string",
@@ -477,6 +671,9 @@
           "type": "string",
           "maxLength": 150
         },
+        "usdtEnabled": {
+          "type": "boolean"
+        },
         "ethereumAddress": {
           "type": "string",
           "maxLength": 150
@@ -485,6 +682,9 @@
           "type": "string",
           "maxLength": 100
         },
+        "ethereumEnabled": {
+          "type": "boolean"
+        },
         "bitcoinAddress": {
           "type": "string",
           "maxLength": 150
@@ -492,6 +692,9 @@
         "bitcoinLightning": {
           "type": "string",
           "maxLength": 150
+        },
+        "bitcoinEnabled": {
+          "type": "boolean"
         },
         "cashAppCashtag": {
           "type": "string",
@@ -512,7 +715,13 @@
           "type": "string",
           "maxLength": 150
         },
+        "krakenPayEnabled": {
+          "type": "boolean"
+        },
         "krakenSponsorBadgeEnabled": {
+          "type": "boolean"
+        },
+        "bankTransferEnabled": {
           "type": "boolean"
         },
         "bankName": {
@@ -544,7 +753,8 @@
           "maxLength": 2000
         },
         "updatedAt": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 40
         }
       },
       "required": ["updatedAt"]
@@ -555,7 +765,8 @@
       "type": "object",
       "properties": {
         "id": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 128
         },
         "invoiceNumber": {
           "type": "string",
@@ -563,7 +774,7 @@
         },
         "vendorApplicationId": {
           "type": "string",
-          "maxLength": 100
+          "maxLength": 128
         },
         "recipientBusinessName": {
           "type": "string",
@@ -587,10 +798,12 @@
           "maxLength": 250
         },
         "issueDate": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 40
         },
         "dueDate": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 40
         },
         "status": {
           "type": "string",
@@ -626,32 +839,196 @@
           "type": "string",
           "maxLength": 1500
         },
+        "eTransferEmail": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "eTransferSecurityAnswer": {
+          "type": "string",
+          "maxLength": 500
+        },
         "cryptoAddresses": {
+          "type": "object"
+        },
+        "paymentMethodsEnabled": {
+          "type": "object"
+        },
+        "bankDetails": {
           "type": "object"
         },
         "paymentDetailsSubmitted": {
           "type": "object"
         },
+        "checkoutUrl": {
+          "type": "string",
+          "maxLength": 500
+        },
         "sentAt": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 40
         },
         "paidAt": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 40
         },
         "createdAt": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 40
         },
         "updatedAt": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 40
         }
       },
       "required": ["invoiceNumber", "recipientEmail", "totalAmount", "status", "issueDate", "dueDate", "createdAt"]
+    },
+    "EventLocationMarket": {
+      "title": "EventLocationMarket",
+      "description": "Admin-managed event market location record for regional scheduling and vendor operations.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "stateCode": {
+          "type": "string",
+          "maxLength": 10
+        },
+        "stateName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "cityName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "venueName": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 250
+        },
+        "zipCode": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "mapUrl": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "dates": {
+          "type": "array"
+        },
+        "startDate": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "endDate": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "isNonStop": {
+          "type": "boolean"
+        },
+        "days": {
+          "type": "array"
+        },
+        "hours": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "vendorTypesAccepted": {
+          "type": "array"
+        },
+        "boothPricePerDay": {
+          "type": "number"
+        },
+        "totalBoothsCount": {
+          "type": "number"
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "imageUrl": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "images": {
+          "type": "array"
+        },
+        "sourceUrl": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "importedFrom": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "createdAt": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "updatedAt": {
+          "type": "string",
+          "maxLength": 40
+        }
+      },
+      "required": ["id", "title", "stateCode", "cityName", "venueName", "dates", "days", "active", "createdAt"]
+    },
+    "CustomCityEntry": {
+      "title": "CustomCityEntry",
+      "description": "Custom city metadata configured by festival administrators.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "stateCode": {
+          "type": "string",
+          "maxLength": 10
+        },
+        "population": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "populationNumber": {
+          "type": "number"
+        },
+        "isOver200k": {
+          "type": "boolean"
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 500
+        }
+      },
+      "required": ["id", "name", "stateCode", "population", "populationNumber"]
     }
   },
   "firestore": {
     "/vendor_applications/{applicationId}": {
       "schema": "VendorApplication",
       "description": "Collection of vendor applications submitted via public form or admin panel."
+    },
+    "/vendor_tracker/{trackerId}": {
+      "schema": "VendorTracker",
+      "description": "Non-PII application tracking & E-Transfer security answer submission collection."
     },
     "/attendee_rsvps/{rsvpId}": {
       "schema": "AttendeeRsvp",
@@ -667,7 +1044,7 @@
     },
     "/email_config/{configId}": {
       "schema": "SmtpConfig",
-      "description": "SMTP and anti-spam deliverability configurations."
+      "description": "SMTP and anti-spam deliverability configurations (admin only)."
     },
     "/payment_config/{configId}": {
       "schema": "PaymentConfig",
@@ -681,10 +1058,17 @@
       "schema": "OutboundEmailLog",
       "description": "Transactional automated email logs."
     },
+    "/event_locations/{locationId}": {
+      "schema": "EventLocationMarket",
+      "description": "Admin-managed event market locations and schedules."
+    },
+    "/custom_cities/{cityId}": {
+      "schema": "CustomCityEntry",
+      "description": "Admin-configured custom city directory entries."
+    },
     "/admins/{adminId}": {
       "schema": "AdminUser",
       "description": "Authorized administrators."
     }
   }
 }
-

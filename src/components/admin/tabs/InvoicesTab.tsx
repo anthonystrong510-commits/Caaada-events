@@ -127,10 +127,10 @@ export function InvoicesTab({
             <span className="p-1.5 rounded-lg bg-[#5A5A40] text-white">
               <FileText className="w-4 h-4" />
             </span>
-            <h2 className="font-bold text-lg text-[#3D3A30]">Vendor Invoices & Crypto Checkout Hub</h2>
+            <h2 className="font-bold text-lg text-[#3D3A30]">Vendor Invoices &amp; E-Transfer Checkout</h2>
           </div>
           <p className="text-xs text-[#7A7566]">
-            Itemized invoices, direct checkout links, automated crypto payment routing, and receipt reviews.
+            Itemized booth invoices, E-Transfer payment instructions, and security answer verification.
           </p>
         </div>
 
@@ -175,7 +175,7 @@ export function InvoicesTab({
             {countUnderReview}
           </div>
           <span className="text-[11px] text-amber-800 mt-0.5 block">
-            TxHash submitted by vendor
+            Security answer submitted
           </span>
         </div>
 
@@ -274,9 +274,9 @@ export function InvoicesTab({
                           <button
                             type="button"
                             onClick={() => setReviewingInvoice(inv)}
-                            className="px-2.5 py-1 rounded-full bg-amber-100 border border-amber-300 text-amber-900 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 w-fit hover:bg-amber-200 transition-colors animate-pulse"
+                            className="px-2.5 py-1 rounded-md bg-amber-100 border border-amber-300 text-amber-900 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 w-fit hover:bg-amber-200 transition-colors cursor-pointer"
                           >
-                            <Clock className="w-3 h-3" /> Review Tx
+                            <Clock className="w-3 h-3" /> Verify E-Transfer
                           </button>
                         ) : inv.status === 'sent' ? (
                           <span className="px-2.5 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-800 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 w-fit">
@@ -362,7 +362,7 @@ export function InvoicesTab({
             <div className="flex items-center justify-between pb-3 border-b border-[#E8E2D6]">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-5 h-5 text-amber-600" />
-                <h3 className="font-bold text-sm text-[#3D3A30]">Verify Vendor Payment</h3>
+                <h3 className="font-bold text-sm text-[#3D3A30]">Verify E-Transfer Payment</h3>
               </div>
               <span className="font-mono text-xs font-bold text-[#5A5A40]">{reviewingInvoice.invoiceNumber}</span>
             </div>
@@ -375,33 +375,33 @@ export function InvoicesTab({
 
               <div>
                 <span className="text-[#7A7566] block font-bold">Total Amount Due:</span>
-                <span className="text-emerald-800 font-extrabold text-sm">${reviewingInvoice.totalAmount} USD</span>
+                <span className="text-emerald-800 font-extrabold text-sm tabular-nums">${reviewingInvoice.totalAmount} USD</span>
               </div>
 
               <div>
-                <span className="text-[#7A7566] block font-bold">Payment Method Used:</span>
+                <span className="text-[#7A7566] block font-bold">Payment Method:</span>
                 <span className="text-[#3D3A30] uppercase font-mono font-bold">
-                  {reviewingInvoice.paymentDetailsSubmitted?.method || 'Crypto On-Chain'}
+                  {reviewingInvoice.paymentDetailsSubmitted?.method || 'E-TRANSFER'}
                 </span>
               </div>
 
               <div>
-                <span className="text-[#7A7566] block font-bold">Transaction Hash (TxID):</span>
-                <span className="font-mono text-[11px] text-[#5A5A40] break-all select-all font-semibold block bg-white p-2 rounded-lg border border-[#E8E2D6] mt-1">
-                  {reviewingInvoice.paymentDetailsSubmitted?.txHash || 'N/A'}
+                <span className="text-[#7A7566] block font-bold">Security Question Answer / Confirmation Details:</span>
+                <span className="font-mono text-xs text-[#3D3A30] break-all select-all font-bold block bg-white p-2.5 rounded-lg border border-[#E8E2D6] mt-1">
+                  {reviewingInvoice.paymentDetailsSubmitted?.eTransferSecurityAnswer || reviewingInvoice.paymentDetailsSubmitted?.txHash || 'N/A'}
                 </span>
               </div>
 
               {reviewingInvoice.paymentDetailsSubmitted?.payerWalletOrHandle && (
                 <div>
-                  <span className="text-[#7A7566] block font-bold">Sender Handle / Wallet:</span>
+                  <span className="text-[#7A7566] block font-bold">E-Transfer Sender Email:</span>
                   <span className="text-[#3D3A30] font-mono">{reviewingInvoice.paymentDetailsSubmitted.payerWalletOrHandle}</span>
                 </div>
               )}
 
               {reviewingInvoice.paymentDetailsSubmitted?.proofNote && (
                 <div>
-                  <span className="text-[#7A7566] block font-bold">Proof Memo:</span>
+                  <span className="text-[#7A7566] block font-bold">Vendor Confirmation Note:</span>
                   <span className="text-[#3D3A30] italic">{reviewingInvoice.paymentDetailsSubmitted.proofNote}</span>
                 </div>
               )}

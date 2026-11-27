@@ -1,18 +1,20 @@
 import React from 'react';
-import { Store, Mail, MapPin, ArrowUp, ArrowRight, Ticket, Sun } from 'lucide-react';
+import { Store, Mail, MapPin, ArrowUp, ArrowRight, Ticket, Sun, Search } from 'lucide-react';
 import { EVENT_CONFIG, FESTIVAL_CONTACT_EMAIL, FESTIVAL_LOCATION } from '../data/festivalData';
 
 interface FooterProps {
   onScrollToVendorBooking: () => void;
   onOpenAttendeeModal: () => void;
   onOpenVendorModal?: () => void;
+  onOpenTrackerModal?: () => void;
   onNavigateToAdmin?: () => void;
 }
 
 export const Footer: React.FC<FooterProps> = ({
   onScrollToVendorBooking,
   onOpenAttendeeModal,
-  onOpenVendorModal
+  onOpenVendorModal,
+  onOpenTrackerModal
 }) => {
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -119,6 +121,20 @@ export const Footer: React.FC<FooterProps> = ({
                 </span>
                 <ArrowRight className="w-4 h-4" />
               </button>
+
+              {onOpenTrackerModal && (
+                <button
+                  type="button"
+                  onClick={onOpenTrackerModal}
+                  className="w-full py-2.5 px-5 rounded-full text-xs font-bold uppercase tracking-wider text-[#3D3A30] bg-transparent hover:bg-white/70 border border-[#D6CFBE] transition-colors text-left flex items-center justify-between cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <Search className="w-4 h-4 text-[#5A5A40]" />
+                    <span>Track Application &amp; E-Transfer</span>
+                  </span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              )}
             </div>
 
             <div className="pt-2 text-[11px] text-[#7A7566] space-y-1">

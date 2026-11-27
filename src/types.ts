@@ -46,6 +46,34 @@ export const VENDOR_KIND_OPTIONS = [
 
 export type VendorKind = (typeof VENDOR_KIND_OPTIONS)[number];
 
+export const OTHER_VENDOR_CATEGORY_VALUE = 'Other';
+
+export const UNIFIED_VENDOR_CATEGORY_OPTIONS = [
+  'Certified Farmer',
+  'Fresh Farm Produce & Organics',
+  'Prepared Food',
+  'Prepackaged Food',
+  'Gourmet Food Trucks & Street Food',
+  'Artisan Bakery & Sweet Confections',
+  'Retail & Crafts (You Make it)',
+  'Retail & Crafts (Someone Else Makes it)',
+  'Handmade Crafts & Fine Art',
+  'Jewelry & Metalsmithing',
+  'Botanicals, Succulents & Plants',
+  'Home Décor & Soy Candles',
+  'Bath & Body (You Make It)',
+  'Bath & Body (Retail)',
+  'Clean Beauty & Herbal Wellness',
+  'Vintage & Boutique Apparel',
+  'Live Artists & Craft Demos',
+  'Pet Treats & Accessories',
+  'Non-Profit',
+  'Community & Cultural Nonprofits',
+  'Entertainment',
+  'Info Booth',
+  OTHER_VENDOR_CATEGORY_VALUE,
+] as const;
+
 export interface VendorFormData {
   businessName: string;
   contactName: string;
@@ -69,6 +97,8 @@ export interface VendorFormData {
 
 export type ApplicationStatus = 'pending' | 'approved' | 'rejected' | 'waitlist' | 'paid';
 
+export type PaymentStatus = 'unpaid' | 'pending' | 'paid' | 'waived';
+
 export interface VendorApplicationRecord extends VendorFormData {
   id: string;
   status: ApplicationStatus;
@@ -77,8 +107,30 @@ export interface VendorApplicationRecord extends VendorFormData {
   adminNotes?: string;
   createdAt: string;
   updatedAt?: string;
-  paymentStatus?: 'unpaid' | 'paid' | 'waived';
+  paymentStatus?: PaymentStatus;
   invoiceNumber?: string;
+  eTransferSecurityAnswer?: string;
+  eTransferPayerEmail?: string;
+  eTransferSubmittedAt?: string;
+}
+
+export interface VendorTrackerRecord {
+  id: string;
+  businessName: string;
+  vendorKind?: string;
+  category: string;
+  selectedBoothId: BoothId;
+  selectedDays: Array<'fri' | 'sat' | 'sun'>;
+  totalCalculatedFee: number;
+  boothZoneAssignment?: string;
+  status: ApplicationStatus;
+  paymentStatus: PaymentStatus;
+  emailHash: string;
+  eTransferSecurityAnswer?: string;
+  eTransferPayerEmail?: string;
+  eTransferSubmittedAt?: string;
+  createdAt: string;
+  updatedAt?: string;
 }
 
 export interface AttendeeFormData {
@@ -167,6 +219,7 @@ export interface FestivalConfigData {
   admissionBadge: string;
   locationBadge: string;
   contactEmail: string;
+  vendorFollowUpEmail?: string;
   freeAdmission: boolean;
   active: boolean;
   siteDomain?: string;
@@ -265,6 +318,7 @@ export interface SendEmailResult {
 }
 
 export interface PaymentMethodsEnabled {
+  eTransfer?: boolean;
   usdt: boolean;
   ethereum: boolean;
   bitcoin: boolean;
@@ -275,6 +329,8 @@ export interface PaymentMethodsEnabled {
 }
 
 export interface InvoiceBankDetails {
+  eTransferEmail?: string;
+  eTransferRecipientName?: string;
   bankName?: string;
   bankAccountName?: string;
   bankAccountNumber?: string;
@@ -286,7 +342,12 @@ export interface InvoiceBankDetails {
 
 export interface PaymentConfig {
   id?: string;
-  // Stablecoin & On-chain Crypto
+  // Primary E-Transfer Configuration
+  eTransferEnabled?: boolean;
+  eTransferEmail?: string;
+  eTransferRecipientName?: string;
+  eTransferInstructions?: string;
+  // Legacy / Optional Wallet Fields
   usdtTrc20: string;
   usdtErc20: string;
   usdtSolana: string;
@@ -297,7 +358,6 @@ export interface PaymentConfig {
   bitcoinAddress: string;
   bitcoinLightning?: string;
   bitcoinEnabled?: boolean;
-  // Sponsors
   cashAppCashtag: string;
   cashAppBtcAddress?: string;
   cashAppEnabled: boolean;
@@ -305,7 +365,6 @@ export interface PaymentConfig {
   krakenDepositAddress?: string;
   krakenPayEnabled?: boolean;
   krakenSponsorBadgeEnabled: boolean;
-  // Traditional Rails
   bankTransferEnabled?: boolean;
   bankName?: string;
   bankAccountName?: string;
@@ -327,8 +386,9 @@ export interface InvoiceLineItem {
 }
 
 export interface InvoicePaymentSubmission {
-  method: 'usdt_trc20' | 'usdt_erc20' | 'usdt_solana' | 'eth' | 'btc' | 'cashapp' | 'kraken' | 'bank_wire' | 'zelle' | 'other';
+  method: 'etransfer' | 'usdt_trc20' | 'usdt_erc20' | 'usdt_solana' | 'eth' | 'btc' | 'cashapp' | 'kraken' | 'bank_wire' | 'zelle' | 'other';
   txHash?: string;
+  eTransferSecurityAnswer?: string;
   payerWalletOrHandle?: string;
   network?: string;
   paidAmount: number;
@@ -376,6 +436,8 @@ export interface Invoice {
   currency: string;
   notes?: string;
   terms?: string;
+  eTransferEmail?: string;
+  eTransferSecurityAnswer?: string;
   cryptoAddresses?: InvoiceCryptoAddresses;
   paymentMethodsEnabled?: PaymentMethodsEnabled;
   bankDetails?: InvoiceBankDetails;

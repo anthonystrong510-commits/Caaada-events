@@ -3,80 +3,622 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Default deny catch-all
+    // Default deny catch-all (Master Safety Net)
     match /{document=**} {
       allow read, write: if false;
     }
 
+    // ---------------------------------------------------------
+    // Global Hardened Primitives
+    // ---------------------------------------------------------
     function isSignedIn() {
       return request.auth != null;
     }
 
+    function isSuperAdminEmail() {
+      return isSignedIn() &&
+        request.auth.token.email == 'muokltd@gmail.com' &&
+        request.auth.token.email_verified == true;
+    }
+
     function isAdmin() {
-      return isSignedIn() && (
-        request.auth.token.email == 'muokltd@gmail.com' ||
+      return isSuperAdminEmail() || (
+        isSignedIn() &&
+        request.auth.token.email_verified == true &&
         exists(/databases/$(database)/documents/admins/$(request.auth.uid))
       );
     }
 
     function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    // Vendor Applications: Full read & write for deployed public portal & admin dashboard
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isOptString(data, key, maxLen) {
+      return !(key in data) || (data[key] is string && data[key].size() <= maxLen);
+    }
+
+    function isOptBool(data, key) {
+      return !(key in data) || data[key] is bool;
+    }
+
+    function isOptNumber(data, key) {
+      return !(key in data) || (data[key] is int || data[key] is float);
+    }
+
+    function isValidTimestampStr(val) {
+      return val is string && val.size() >= 10 && val.size() <= 40;
+    }
+
+    function isValidStringList(listVal, minLen, maxLen, firstMaxLen) {
+      return listVal is list &&
+        listVal.size() >= minLen &&
+        listVal.size() <= maxLen &&
+        (listVal.size() == 0 || (listVal[0] is string && listVal[0].size() <= firstMaxLen));
+    }
+
+    // ---------------------------------------------------------
+    // Validation Blueprints (Phase 3 / Eight Pillars)
+    // ---------------------------------------------------------
+    function isValidVendorApplication(data) {
+      return data.keys().hasAll([
+          'businessName', 'contactName', 'email', 'category',
+          'selectedBoothId', 'selectedDays', 'status', 'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'businessName', 'contactName', 'email', 'phone', 'website',
+          'vendorKind', 'category', 'selectedBoothId', 'selectedDays',
+          'productDescription', 'photoLinks', 'isFoodVendor', 'hasFoodPermit',
+          'tempHygieneCompliant', 'needsHandicapParking', 'handicapNotes',
+          'additionalRequests', 'agreedToTerms', 'status', 'totalCalculatedFee',
+          'boothZoneAssignment', 'adminNotes', 'paymentStatus', 'invoiceNumber',
+          'eTransferSecurityAnswer', 'eTransferPayerEmail', 'eTransferSubmittedAt',
+          'createdAt', 'updatedAt'
+        ]) &&
+        isOptString(data, 'id', 128) &&
+        data.businessName is string && data.businessName.size() >= 1 && data.businessName.size() <= 150 &&
+        data.contactName is string && data.contactName.size() >= 1 && data.contactName.size() <= 100 &&
+        data.email is string && data.email.size() >= 3 && data.email.size() <= 150 &&
+        isOptString(data, 'phone', 50) &&
+        isOptString(data, 'website', 200) &&
+        isOptString(data, 'vendorKind', 100) &&
+        data.category is string && data.category.size() >= 1 && data.category.size() <= 100 &&
+        data.selectedBoothId is string && data.selectedBoothId.size() >= 1 && data.selectedBoothId.size() <= 50 &&
+        isValidStringList(data.selectedDays, 1, 3, 10) &&
+        isOptString(data, 'productDescription', 1000) &&
+        isOptString(data, 'photoLinks', 500) &&
+        isOptBool(data, 'isFoodVendor') &&
+        isOptBool(data, 'hasFoodPermit') &&
+        isOptBool(data, 'tempHygieneCompliant') &&
+        isOptBool(data, 'needsHandicapParking') &&
+        isOptString(data, 'handicapNotes', 500) &&
+        isOptString(data, 'additionalRequests', 500) &&
+        isOptBool(data, 'agreedToTerms') &&
+        data.status in ['pending', 'approved', 'rejected', 'waitlist', 'paid'] &&
+        isOptNumber(data, 'totalCalculatedFee') &&
+        isOptString(data, 'boothZoneAssignment', 100) &&
+        isOptString(data, 'adminNotes', 1000) &&
+        (!('paymentStatus' in data) || data.paymentStatus in ['unpaid', 'paid', 'waived', 'pending']) &&
+        isOptString(data, 'invoiceNumber', 50) &&
+        isOptString(data, 'eTransferSecurityAnswer', 500) &&
+        isOptString(data, 'eTransferPayerEmail', 150) &&
+        (!('eTransferSubmittedAt' in data) || isValidTimestampStr(data.eTransferSubmittedAt)) &&
+        isValidTimestampStr(data.createdAt) &&
+        (!('updatedAt' in data) || isValidTimestampStr(data.updatedAt));
+    }
+
+    function isValidVendorTracker(data) {
+      return data.keys().hasAll([
+          'id', 'businessName', 'category', 'selectedBoothId', 'selectedDays',
+          'status', 'paymentStatus', 'emailHash', 'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'businessName', 'vendorKind', 'category', 'selectedBoothId',
+          'selectedDays', 'totalCalculatedFee', 'boothZoneAssignment',
+          'status', 'paymentStatus', 'emailHash',
+          'eTransferSecurityAnswer', 'eTransferPayerEmail', 'eTransferSubmittedAt',
+          'createdAt', 'updatedAt'
+        ]) &&
+        data.id is string && data.id.size() >= 1 && data.id.size() <= 128 &&
+        data.businessName is string && data.businessName.size() >= 1 && data.businessName.size() <= 150 &&
+        isOptString(data, 'vendorKind', 100) &&
+        data.category is string && data.category.size() >= 1 && data.category.size() <= 100 &&
+        data.selectedBoothId is string && data.selectedBoothId.size() >= 1 && data.selectedBoothId.size() <= 50 &&
+        isValidStringList(data.selectedDays, 1, 3, 10) &&
+        isOptNumber(data, 'totalCalculatedFee') &&
+        isOptString(data, 'boothZoneAssignment', 100) &&
+        data.status in ['pending', 'approved', 'rejected', 'waitlist', 'paid'] &&
+        data.paymentStatus in ['unpaid', 'pending', 'paid', 'waived'] &&
+        data.emailHash is string && data.emailHash.size() >= 16 && data.emailHash.size() <= 128 &&
+        isOptString(data, 'eTransferSecurityAnswer', 500) &&
+        isOptString(data, 'eTransferPayerEmail', 150) &&
+        (!('eTransferSubmittedAt' in data) || isValidTimestampStr(data.eTransferSubmittedAt)) &&
+        isValidTimestampStr(data.createdAt) &&
+        (!('updatedAt' in data) || isValidTimestampStr(data.updatedAt));
+    }
+
+    function isValidAttendeeRsvp(data) {
+      return data.keys().hasAll(['name', 'email', 'daysAttending', 'groupSize', 'createdAt']) &&
+        data.keys().hasOnly([
+          'id', 'name', 'email', 'daysAttending', 'interests', 'groupSize',
+          'newsletterOptIn', 'checkedIn', 'checkedInAt', 'passCode', 'createdAt', 'updatedAt'
+        ]) &&
+        isOptString(data, 'id', 128) &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+        data.email is string && data.email.size() >= 3 && data.email.size() <= 150 &&
+        isValidStringList(data.daysAttending, 1, 3, 10) &&
+        (!('interests' in data) || isValidStringList(data.interests, 0, 20, 100)) &&
+        (data.groupSize is int || data.groupSize is float) && data.groupSize >= 1 && data.groupSize <= 100 &&
+        isOptBool(data, 'newsletterOptIn') &&
+        isOptBool(data, 'checkedIn') &&
+        (!('checkedInAt' in data) || data.checkedInAt == null || isValidTimestampStr(data.checkedInAt)) &&
+        isOptString(data, 'passCode', 50) &&
+        isValidTimestampStr(data.createdAt) &&
+        (!('updatedAt' in data) || isValidTimestampStr(data.updatedAt));
+    }
+
+    function isValidFestivalConfig(data) {
+      return data.keys().hasAll(['name', 'contactEmail', 'updatedAt']) &&
+        data.keys().hasOnly([
+          'id', 'name', 'shortName', 'heroHeadline', 'edition', 'tagline',
+          'description', 'venueName', 'venueArea', 'address', 'cityState',
+          'fullLocation', 'mapQuery', 'datesSummary', 'durationBadge',
+          'admissionBadge', 'locationBadge', 'contactEmail', 'vendorFollowUpEmail', 'freeAdmission',
+          'active', 'siteDomain', 'websiteUrl', 'seoTitle', 'seoDescription',
+          'seoKeywords', 'datingKeywords', 'updatedAt'
+        ]) &&
+        isOptString(data, 'id', 128) &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 200 &&
+        isOptString(data, 'shortName', 100) &&
+        isOptString(data, 'heroHeadline', 200) &&
+        isOptString(data, 'edition', 150) &&
+        isOptString(data, 'tagline', 250) &&
+        isOptString(data, 'description', 2000) &&
+        isOptString(data, 'venueName', 200) &&
+        isOptString(data, 'venueArea', 150) &&
+        isOptString(data, 'address', 250) &&
+        isOptString(data, 'cityState', 150) &&
+        isOptString(data, 'fullLocation', 300) &&
+        isOptString(data, 'mapQuery', 200) &&
+        isOptString(data, 'datesSummary', 150) &&
+        isOptString(data, 'durationBadge', 100) &&
+        isOptString(data, 'admissionBadge', 100) &&
+        isOptString(data, 'locationBadge', 100) &&
+        data.contactEmail is string && data.contactEmail.size() >= 3 && data.contactEmail.size() <= 150 &&
+        isOptString(data, 'vendorFollowUpEmail', 150) &&
+        isOptBool(data, 'freeAdmission') &&
+        isOptBool(data, 'active') &&
+        isOptString(data, 'siteDomain', 250) &&
+        isOptString(data, 'websiteUrl', 250) &&
+        isOptString(data, 'seoTitle', 200) &&
+        isOptString(data, 'seoDescription', 500) &&
+        isOptString(data, 'seoKeywords', 500) &&
+        isOptString(data, 'datingKeywords', 300) &&
+        isValidTimestampStr(data.updatedAt);
+    }
+
+    function isValidEmailTemplate(data) {
+      return data.keys().hasAll(['key', 'title', 'subject', 'htmlBody', 'updatedAt']) &&
+        data.keys().hasOnly([
+          'id', 'key', 'title', 'category', 'subject', 'previewText',
+          'htmlBody', 'plainTextBody', 'dynamicVariables', 'antiSpamScore',
+          'spamAdvice', 'isCustom', 'updatedAt'
+        ]) &&
+        isOptString(data, 'id', 128) &&
+        data.key is string && data.key.size() >= 1 && data.key.size() <= 100 &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 150 &&
+        (!('category' in data) || data.category in ['vendor', 'attendee', 'broadcast', 'billing', 'custom']) &&
+        data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 250 &&
+        isOptString(data, 'previewText', 250) &&
+        data.htmlBody is string && data.htmlBody.size() <= 20000 &&
+        isOptString(data, 'plainTextBody', 10000) &&
+        (!('dynamicVariables' in data) || isValidStringList(data.dynamicVariables, 0, 50, 100)) &&
+        isOptNumber(data, 'antiSpamScore') &&
+        (!('spamAdvice' in data) || isValidStringList(data.spamAdvice, 0, 50, 300)) &&
+        isOptBool(data, 'isCustom') &&
+        isValidTimestampStr(data.updatedAt);
+    }
+
+    function isValidSmtpConfig(data) {
+      return data.keys().hasAll(['host', 'port', 'fromEmail', 'updatedAt']) &&
+        data.keys().hasOnly([
+          'id', 'host', 'port', 'secure', 'username', 'password',
+          'fromName', 'fromEmail', 'replyToEmail', 'rateLimitPerHour',
+          'spfRecord', 'dkimSelector', 'dmarcPolicy', 'isEnabled',
+          'testStatus', 'lastTestedAt', 'updatedAt'
+        ]) &&
+        isOptString(data, 'id', 128) &&
+        data.host is string && data.host.size() <= 150 &&
+        (data.port is int || data.port is float) && data.port >= 1 && data.port <= 65535 &&
+        isOptBool(data, 'secure') &&
+        isOptString(data, 'username', 150) &&
+        isOptString(data, 'password', 150) &&
+        isOptString(data, 'fromName', 100) &&
+        data.fromEmail is string && data.fromEmail.size() <= 150 &&
+        isOptString(data, 'replyToEmail', 150) &&
+        isOptNumber(data, 'rateLimitPerHour') &&
+        isOptString(data, 'spfRecord', 200) &&
+        isOptString(data, 'dkimSelector', 100) &&
+        isOptString(data, 'dmarcPolicy', 200) &&
+        isOptBool(data, 'isEnabled') &&
+        (!('testStatus' in data) || data.testStatus in ['idle', 'success', 'failed', 'testing']) &&
+        isOptString(data, 'lastTestedAt', 40) &&
+        isValidTimestampStr(data.updatedAt);
+    }
+
+    function isValidOutboundEmailLog(data) {
+      return data.keys().hasAll(['recipientEmail', 'subject', 'status', 'sentAt']) &&
+        data.keys().hasOnly([
+          'id', 'recipientEmail', 'recipientName', 'templateKey', 'subject',
+          'plainText', 'htmlBody', 'renderedHtml', 'renderedPlain', 'status',
+          'antiSpamScore', 'sentAt', 'previewUrl', 'method', 'error', 'meta'
+        ]) &&
+        isOptString(data, 'id', 128) &&
+        data.recipientEmail is string && data.recipientEmail.size() <= 150 &&
+        isOptString(data, 'recipientName', 100) &&
+        isOptString(data, 'templateKey', 100) &&
+        data.subject is string && data.subject.size() <= 250 &&
+        isOptString(data, 'plainText', 10000) &&
+        isOptString(data, 'htmlBody', 25000) &&
+        isOptString(data, 'renderedHtml', 25000) &&
+        isOptString(data, 'renderedPlain', 10000) &&
+        data.status in ['delivered', 'simulated', 'failed', 'pending'] &&
+        isOptNumber(data, 'antiSpamScore') &&
+        isValidTimestampStr(data.sentAt) &&
+        isOptString(data, 'previewUrl', 500) &&
+        isOptString(data, 'method', 50) &&
+        isOptString(data, 'error', 500) &&
+        (!('meta' in data) || data.meta is map);
+    }
+
+    function isValidPaymentConfig(data) {
+      return data.keys().hasAll(['updatedAt']) &&
+        data.keys().hasOnly([
+          'id', 'eTransferEnabled', 'eTransferEmail', 'eTransferRecipientName', 'eTransferInstructions',
+          'usdtTrc20', 'usdtErc20', 'usdtSolana', 'usdtEnabled',
+          'ethereumAddress', 'ethereumEns', 'ethereumEnabled', 'bitcoinAddress',
+          'bitcoinLightning', 'bitcoinEnabled', 'cashAppCashtag', 'cashAppBtcAddress',
+          'cashAppEnabled', 'krakenPayId', 'krakenDepositAddress', 'krakenPayEnabled',
+          'krakenSponsorBadgeEnabled', 'bankTransferEnabled', 'bankName',
+          'bankAccountName', 'bankAccountNumber', 'bankRoutingNumber', 'bankSwiftBic',
+          'zelleHandle', 'paymentInstructions', 'updatedAt'
+        ]) &&
+        isOptString(data, 'id', 128) &&
+        isOptBool(data, 'eTransferEnabled') &&
+        isOptString(data, 'eTransferEmail', 150) &&
+        isOptString(data, 'eTransferRecipientName', 150) &&
+        isOptString(data, 'eTransferInstructions', 2000) &&
+        isOptString(data, 'usdtTrc20', 150) &&
+        isOptString(data, 'usdtErc20', 150) &&
+        isOptString(data, 'usdtSolana', 150) &&
+        isOptBool(data, 'usdtEnabled') &&
+        isOptString(data, 'ethereumAddress', 150) &&
+        isOptString(data, 'ethereumEns', 100) &&
+        isOptBool(data, 'ethereumEnabled') &&
+        isOptString(data, 'bitcoinAddress', 150) &&
+        isOptString(data, 'bitcoinLightning', 150) &&
+        isOptBool(data, 'bitcoinEnabled') &&
+        isOptString(data, 'cashAppCashtag', 100) &&
+        isOptString(data, 'cashAppBtcAddress', 150) &&
+        isOptBool(data, 'cashAppEnabled') &&
+        isOptString(data, 'krakenPayId', 150) &&
+        isOptString(data, 'krakenDepositAddress', 150) &&
+        isOptBool(data, 'krakenPayEnabled') &&
+        isOptBool(data, 'krakenSponsorBadgeEnabled') &&
+        isOptBool(data, 'bankTransferEnabled') &&
+        isOptString(data, 'bankName', 150) &&
+        isOptString(data, 'bankAccountName', 150) &&
+        isOptString(data, 'bankAccountNumber', 100) &&
+        isOptString(data, 'bankRoutingNumber', 100) &&
+        isOptString(data, 'bankSwiftBic', 100) &&
+        isOptString(data, 'zelleHandle', 150) &&
+        isOptString(data, 'paymentInstructions', 2000) &&
+        isValidTimestampStr(data.updatedAt);
+    }
+
+    function isValidPaymentProofSubmission(sub) {
+      return sub is map &&
+        sub.keys().hasAll(['method', 'paidAmount', 'paidCurrency', 'submittedAt']) &&
+        sub.keys().hasOnly([
+          'method', 'txHash', 'eTransferSecurityAnswer', 'payerWalletOrHandle', 'network',
+          'paidAmount', 'paidCurrency', 'submittedAt', 'proofNote',
+          'reviewedBy', 'reviewedAt'
+        ]) &&
+        sub.method in [
+          'etransfer', 'usdt_trc20', 'usdt_erc20', 'usdt_solana', 'eth', 'btc',
+          'cashapp', 'kraken', 'bank_wire', 'zelle', 'other'
+        ] &&
+        isOptString(sub, 'txHash', 200) &&
+        isOptString(sub, 'eTransferSecurityAnswer', 500) &&
+        isOptString(sub, 'payerWalletOrHandle', 200) &&
+        isOptString(sub, 'network', 50) &&
+        (sub.paidAmount is int || sub.paidAmount is float) && sub.paidAmount >= 0 &&
+        sub.paidCurrency is string && sub.paidCurrency.size() <= 15 &&
+        isValidTimestampStr(sub.submittedAt) &&
+        isOptString(sub, 'proofNote', 500) &&
+        isOptString(sub, 'reviewedBy', 150) &&
+        (!('reviewedAt' in sub) || isValidTimestampStr(sub.reviewedAt));
+    }
+
+    function isValidInvoice(data) {
+      return data.keys().hasAll([
+          'invoiceNumber', 'recipientEmail', 'totalAmount',
+          'status', 'issueDate', 'dueDate', 'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'invoiceNumber', 'vendorApplicationId', 'recipientBusinessName',
+          'recipientContactName', 'recipientEmail', 'recipientPhone',
+          'recipientAddress', 'issueDate', 'dueDate', 'status', 'items',
+          'subtotal', 'discountAmount', 'taxAmount', 'totalAmount', 'paidAmount',
+          'currency', 'notes', 'terms', 'eTransferEmail', 'eTransferSecurityAnswer',
+          'cryptoAddresses', 'paymentMethodsEnabled',
+          'bankDetails', 'paymentDetailsSubmitted', 'checkoutUrl',
+          'sentAt', 'paidAt', 'createdAt', 'updatedAt'
+        ]) &&
+        isOptString(data, 'id', 128) &&
+        data.invoiceNumber is string && data.invoiceNumber.size() >= 1 && data.invoiceNumber.size() <= 50 &&
+        isOptString(data, 'vendorApplicationId', 128) &&
+        isOptString(data, 'recipientBusinessName', 150) &&
+        isOptString(data, 'recipientContactName', 100) &&
+        data.recipientEmail is string && data.recipientEmail.size() <= 150 &&
+        isOptString(data, 'recipientPhone', 50) &&
+        isOptString(data, 'recipientAddress', 250) &&
+        data.issueDate is string && data.issueDate.size() <= 40 &&
+        data.dueDate is string && data.dueDate.size() <= 40 &&
+        data.status in ['draft', 'sent', 'paid', 'under_review', 'overdue', 'cancelled'] &&
+        (!('items' in data) || (data.items is list && data.items.size() <= 50 && (data.items.size() == 0 || data.items[0] is map))) &&
+        isOptNumber(data, 'subtotal') &&
+        isOptNumber(data, 'discountAmount') &&
+        isOptNumber(data, 'taxAmount') &&
+        (data.totalAmount is int || data.totalAmount is float) && data.totalAmount >= 0 &&
+        isOptNumber(data, 'paidAmount') &&
+        isOptString(data, 'currency', 10) &&
+        isOptString(data, 'notes', 1500) &&
+        isOptString(data, 'terms', 1500) &&
+        isOptString(data, 'eTransferEmail', 150) &&
+        isOptString(data, 'eTransferSecurityAnswer', 500) &&
+        (!('cryptoAddresses' in data) || data.cryptoAddresses is map) &&
+        (!('paymentMethodsEnabled' in data) || data.paymentMethodsEnabled is map) &&
+        (!('bankDetails' in data) || data.bankDetails is map) &&
+        (!('paymentDetailsSubmitted' in data) || isValidPaymentProofSubmission(data.paymentDetailsSubmitted)) &&
+        isOptString(data, 'checkoutUrl', 500) &&
+        isOptString(data, 'sentAt', 40) &&
+        isOptString(data, 'paidAt', 40) &&
+        isValidTimestampStr(data.createdAt) &&
+        (!('updatedAt' in data) || isValidTimestampStr(data.updatedAt));
+    }
+
+    function isValidEventLocation(data) {
+      return data.keys().hasAll(['id', 'title', 'stateCode', 'cityName', 'venueName', 'dates', 'days', 'active', 'createdAt']) &&
+        data.keys().hasOnly([
+          'id', 'title', 'stateCode', 'stateName', 'cityName', 'venueName',
+          'address', 'zipCode', 'mapUrl', 'description', 'dates', 'startDate',
+          'endDate', 'isNonStop', 'days', 'hours', 'vendorTypesAccepted',
+          'boothPricePerDay', 'totalBoothsCount', 'active', 'imageUrl',
+          'images', 'sourceUrl', 'importedFrom', 'createdAt', 'updatedAt'
+        ]) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.title is string && data.title.size() <= 200 &&
+        data.stateCode is string && data.stateCode.size() <= 10 &&
+        isOptString(data, 'stateName', 100) &&
+        data.cityName is string && data.cityName.size() <= 100 &&
+        data.venueName is string && data.venueName.size() <= 200 &&
+        isOptString(data, 'address', 250) &&
+        isOptString(data, 'zipCode', 20) &&
+        isOptString(data, 'mapUrl', 500) &&
+        isOptString(data, 'description', 2000) &&
+        isValidStringList(data.dates, 0, 60, 20) &&
+        isOptString(data, 'startDate', 40) &&
+        isOptString(data, 'endDate', 40) &&
+        isOptBool(data, 'isNonStop') &&
+        isValidStringList(data.days, 0, 7, 10) &&
+        isOptString(data, 'hours', 100) &&
+        (!('vendorTypesAccepted' in data) || isValidStringList(data.vendorTypesAccepted, 0, 30, 100)) &&
+        isOptNumber(data, 'boothPricePerDay') &&
+        isOptNumber(data, 'totalBoothsCount') &&
+        data.active is bool &&
+        isOptString(data, 'imageUrl', 500) &&
+        (!('images' in data) || isValidStringList(data.images, 0, 20, 500)) &&
+        isOptString(data, 'sourceUrl', 500) &&
+        isOptString(data, 'importedFrom', 150) &&
+        isValidTimestampStr(data.createdAt) &&
+        (!('updatedAt' in data) || isValidTimestampStr(data.updatedAt));
+    }
+
+    function isValidCustomCity(data) {
+      return data.keys().hasAll(['id', 'name', 'stateCode', 'population', 'populationNumber']) &&
+        data.keys().hasOnly(['id', 'name', 'stateCode', 'population', 'populationNumber', 'isOver200k', 'notes']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.name is string && data.name.size() <= 100 &&
+        data.stateCode is string && data.stateCode.size() <= 10 &&
+        data.population is string && data.population.size() <= 50 &&
+        (data.populationNumber is int || data.populationNumber is float) &&
+        isOptBool(data, 'isOver200k') &&
+        isOptString(data, 'notes', 500);
+    }
+
+    function isValidAdminUser(data) {
+      return data.keys().hasAll(['email', 'role']) &&
+        data.keys().hasOnly(['id', 'email', 'name', 'role', 'createdAt']) &&
+        isOptString(data, 'id', 128) &&
+        data.email is string && data.email.size() >= 3 && data.email.size() <= 150 &&
+        isOptString(data, 'name', 100) &&
+        data.role in ['superadmin', 'admin'] &&
+        (!('createdAt' in data) || isValidTimestampStr(data.createdAt));
+    }
+
+    // ---------------------------------------------------------
+    // Collection Rules
+    // ---------------------------------------------------------
+
+    // Boot Connectivity Test Document
+    match /test/{docId} {
+      allow get: if docId == 'connection';
+    }
+
+    // Vendor Applications (PII isolated to admin reads; bounded public create)
     match /vendor_applications/{applicationId} {
-      allow read, write: if true;
+      allow get: if isAdmin() && isValidId(applicationId);
+      allow list: if isAdmin();
+      allow create: if isValidId(applicationId) &&
+        isValidVendorApplication(incoming()) && (
+          isAdmin() || (
+            incoming().status == 'pending' &&
+            (!('paymentStatus' in incoming()) || incoming().paymentStatus == 'unpaid') &&
+            (!('adminNotes' in incoming()) || incoming().adminNotes == '')
+          )
+        );
+      allow update: if isAdmin() &&
+        isValidId(applicationId) &&
+        isValidVendorApplication(incoming()) &&
+        incoming().createdAt == existing().createdAt;
+      allow delete: if isAdmin() && isValidId(applicationId);
     }
 
-    // Attendee RSVPs: Full read & write for public ticket passes & gate check-ins
+    // Non-PII Vendor Tracker & E-Transfer Security Answer Submissions
+    match /vendor_tracker/{trackerId} {
+      allow get: if isValidId(trackerId);
+      allow list: if isAdmin() || (request.query.limit != null && request.query.limit <= 5);
+      allow create: if isValidId(trackerId) &&
+        isValidVendorTracker(incoming()) && (
+          isAdmin() || (
+            incoming().status == 'pending' &&
+            incoming().paymentStatus in ['unpaid', 'pending']
+          )
+        );
+      allow update: if isValidId(trackerId) &&
+        isValidVendorTracker(incoming()) &&
+        incoming().createdAt == existing().createdAt && (
+          isAdmin() || (
+            existing().paymentStatus in ['unpaid', 'pending'] &&
+            incoming().paymentStatus == 'pending' &&
+            incoming().status == existing().status &&
+            incoming().totalCalculatedFee == existing().totalCalculatedFee &&
+            incoming().selectedBoothId == existing().selectedBoothId &&
+            incoming().emailHash == existing().emailHash &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'eTransferSecurityAnswer', 'eTransferPayerEmail',
+              'eTransferSubmittedAt', 'paymentStatus', 'updatedAt'
+            ])
+          )
+        );
+      allow delete: if isAdmin() && isValidId(trackerId);
+    }
+
+    // Attendee RSVPs (PII isolated to admin reads; bounded public create)
     match /attendee_rsvps/{rsvpId} {
-      allow read, write: if true;
+      allow get: if isAdmin() && isValidId(rsvpId);
+      allow list: if isAdmin();
+      allow create: if isValidId(rsvpId) &&
+        isValidAttendeeRsvp(incoming()) && (
+          isAdmin() ||
+          (!('checkedIn' in incoming()) || incoming().checkedIn == false)
+        );
+      allow update: if isAdmin() &&
+        isValidId(rsvpId) &&
+        isValidAttendeeRsvp(incoming()) &&
+        incoming().createdAt == existing().createdAt;
+      allow delete: if isAdmin() && isValidId(rsvpId);
     }
 
-    // Festival Configuration
+    // Festival Configuration (Public single-doc settings read; Admin write)
     match /festival_config/{configId} {
-      allow read, write: if true;
+      allow get: if isValidId(configId);
+      allow list: if isAdmin();
+      allow create: if isAdmin() && isValidId(configId) && isValidFestivalConfig(incoming());
+      allow update: if isAdmin() && isValidId(configId) && isValidFestivalConfig(incoming());
+      allow delete: if isAdmin() && isValidId(configId);
     }
 
-    // Email Templates
+    // Email Templates (Single-doc read for transactional dispatch; Admin manage)
     match /email_templates/{templateId} {
-      allow read, write: if true;
+      allow get: if isValidId(templateId);
+      allow list: if isAdmin();
+      allow create: if isAdmin() && isValidId(templateId) && isValidEmailTemplate(incoming());
+      allow update: if isAdmin() && isValidId(templateId) && isValidEmailTemplate(incoming());
+      allow delete: if isAdmin() && isValidId(templateId);
     }
 
-    // SMTP Configuration
+    // SMTP Credentials & Configuration (Strictly Admin Only - Contains Secrets)
     match /email_config/{configId} {
-      allow read, write: if true;
+      allow get: if isAdmin() && isValidId(configId);
+      allow list: if isAdmin();
+      allow create: if isAdmin() && isValidId(configId) && isValidSmtpConfig(incoming());
+      allow update: if isAdmin() && isValidId(configId) && isValidSmtpConfig(incoming());
+      allow delete: if isAdmin() && isValidId(configId);
     }
 
-    // Payment & Crypto Configuration (USDT, ETH, BTC, Kraken, CashApp)
-    match /payment_config/{configId} {
-      allow read, write: if true;
-    }
-
-    // Invoices with Checkout & Crypto Payment Tracking
-    match /invoices/{invoiceId} {
-      allow read, write: if true;
-    }
-
-    // Outbound Email Logs
+    // Outbound Email Logs (Strictly Admin Only)
     match /outbound_email_logs/{logId} {
-      allow read, write: if true;
+      allow get: if isAdmin() && isValidId(logId);
+      allow list: if isAdmin();
+      allow create: if isAdmin() && isValidId(logId) && isValidOutboundEmailLog(incoming());
+      allow update: if isAdmin() && isValidId(logId) && isValidOutboundEmailLog(incoming());
+      allow delete: if isAdmin() && isValidId(logId);
     }
 
-    // Event Locations, States & Cities
+    // Payment & Crypto Configuration (Public single-doc get for invoice checkout; Admin write)
+    match /payment_config/{configId} {
+      allow get: if isValidId(configId);
+      allow list: if isAdmin();
+      allow create: if isAdmin() && isValidId(configId) && isValidPaymentConfig(incoming());
+      allow update: if isAdmin() && isValidId(configId) && isValidPaymentConfig(incoming());
+      allow delete: if isAdmin() && isValidId(configId);
+    }
+
+    // Invoices & Public Checkout Payment Proof
+    match /invoices/{invoiceId} {
+      // Single-doc get by invoice ID (used by direct checkout link); admin list or single-doc invoiceNumber lookup
+      allow get: if isAdmin() || isValidId(invoiceId);
+      allow list: if isAdmin() || (request.query.limit != null && request.query.limit <= 1);
+      allow create: if isAdmin() && isValidId(invoiceId) && isValidInvoice(incoming());
+      allow update: if isValidId(invoiceId) && isValidInvoice(incoming()) && (
+        (isAdmin() && incoming().createdAt == existing().createdAt) ||
+        (
+          // Action: Payer submits payment proof on unpaid/open invoice
+          existing().status in ['sent', 'overdue', 'draft'] &&
+          incoming().status == 'under_review' &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'paymentDetailsSubmitted', 'updatedAt']) &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().totalAmount == existing().totalAmount &&
+          incoming().invoiceNumber == existing().invoiceNumber
+        )
+      );
+      allow delete: if isAdmin() && isValidId(invoiceId);
+    }
+
+    // Admin-Managed Event Locations
     match /event_locations/{locationId} {
-      allow read, write: if true;
+      allow get: if isAdmin() && isValidId(locationId);
+      allow list: if isAdmin();
+      allow create: if isAdmin() && isValidId(locationId) && isValidEventLocation(incoming());
+      allow update: if isAdmin() && isValidId(locationId) && isValidEventLocation(incoming()) && incoming().createdAt == existing().createdAt;
+      allow delete: if isAdmin() && isValidId(locationId);
     }
 
-    // Custom States & Cities
-    match /custom_locations/{docId} {
-      allow read, write: if true;
+    // Admin-Managed Custom Cities
+    match /custom_cities/{cityId} {
+      allow get: if isAdmin() && isValidId(cityId);
+      allow list: if isAdmin();
+      allow create: if isAdmin() && isValidId(cityId) && isValidCustomCity(incoming());
+      allow update: if isAdmin() && isValidId(cityId) && isValidCustomCity(incoming());
+      allow delete: if isAdmin() && isValidId(cityId);
     }
 
-    // Admins Collection
+    // Admins Directory (Super Admin Only Write)
     match /admins/{adminId} {
-      allow read, write: if true;
+      allow get: if isValidId(adminId) && (isAdmin() || (isSignedIn() && request.auth.uid == adminId));
+      allow list: if isAdmin();
+      allow create: if isSuperAdminEmail() && isValidId(adminId) && isValidAdminUser(incoming());
+      allow update: if isSuperAdminEmail() && isValidId(adminId) && isValidAdminUser(incoming());
+      allow delete: if isSuperAdminEmail() && isValidId(adminId);
     }
   }
 }
-

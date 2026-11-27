@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Settings, 
   MapPin, 
@@ -44,6 +44,10 @@ export function FestivalSettingsTab({
 }: FestivalSettingsTabProps) {
   const [form, setForm] = useState<FestivalConfigData>({ ...config });
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  useEffect(() => {
+    setForm({ ...config });
+  }, [config]);
 
   // SMTP Testing State inside settings
   const [isTestingSmtp, setIsTestingSmtp] = useState(false);
@@ -352,6 +356,22 @@ export function FestivalSettingsTab({
                 onChange={(e) => setForm({ ...form, contactEmail: e.target.value })}
                 className="w-full px-3 py-2 rounded-xl border border-[#E8E2D6] bg-[#FDFBF7]"
               />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block font-bold text-[#7A7566] mb-1">
+                Vendor Follow-Up Email (Shown After Vendor Application Submission)
+              </label>
+              <input
+                type="email"
+                value={form.vendorFollowUpEmail ?? ''}
+                onChange={(e) => setForm({ ...form, vendorFollowUpEmail: e.target.value })}
+                placeholder={form.contactEmail || 'vendors@yourdomain.com'}
+                className="w-full px-3 py-2 rounded-xl border border-[#E8E2D6] bg-[#FDFBF7]"
+              />
+              <p className="text-[11px] text-[#7A7566] mt-1">
+                Vendors are prompted to send a follow-up email to this address with a one-click Copy Email button right after submitting their application. Leave blank to default to Organizer Contact Email.
+              </p>
             </div>
           </div>
 
