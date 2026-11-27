@@ -14,6 +14,7 @@ import {
   Lock
 } from 'lucide-react';
 import {
+  BoothTier,
   FestivalConfigData,
   PaymentConfig,
   VendorTrackerRecord
@@ -31,6 +32,7 @@ interface VendorTrackerModalProps {
   initialQuery?: string;
   paymentConfig?: PaymentConfig;
   festivalConfig?: FestivalConfigData;
+  boothTiers?: BoothTier[];
 }
 
 export const VendorTrackerModal: React.FC<VendorTrackerModalProps> = ({
@@ -38,7 +40,8 @@ export const VendorTrackerModal: React.FC<VendorTrackerModalProps> = ({
   onClose,
   initialQuery = '',
   paymentConfig,
-  festivalConfig
+  festivalConfig,
+  boothTiers = BOOTH_TIERS
 }) => {
   const [searchInput, setSearchInput] = useState(initialQuery);
   const [results, setResults] = useState<VendorTrackerRecord[]>([]);
@@ -199,7 +202,7 @@ export const VendorTrackerModal: React.FC<VendorTrackerModalProps> = ({
         {/* Dialog Header */}
         <div className="pr-10 space-y-1.5 mb-6">
           <div className="text-[11px] font-bold uppercase tracking-widest text-[#5A5A40]">
-            Vendor Application &amp; E-Transfer Tracker
+            Vendor Application Tracker
           </div>
           <h3 className="text-2xl sm:text-3xl font-serif italic font-bold text-[#3D3A30] leading-tight">
             Check Your Booth Reservation
@@ -302,7 +305,7 @@ export const VendorTrackerModal: React.FC<VendorTrackerModalProps> = ({
         {/* Tracker Results */}
         <div className="space-y-5">
           {results.map((rec) => {
-            const booth = BOOTH_TIERS.find((b) => b.id === rec.selectedBoothId);
+            const booth = boothTiers.find((b) => b.id === rec.selectedBoothId);
             const approvalBadge = formatApprovalLabel(rec.status);
             const paymentBadge = formatPaymentLabel(rec);
             const isPaidOrWaived = rec.paymentStatus === 'paid' || rec.paymentStatus === 'waived';

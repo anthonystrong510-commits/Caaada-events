@@ -454,6 +454,33 @@ service cloud.firestore {
         (!('createdAt' in data) || isValidTimestampStr(data.createdAt));
     }
 
+    function isValidBoothTier(data) {
+      return data.keys().hasAll(['id', 'name', 'category', 'pricePerDay', 'dimensions']) &&
+        data.keys().hasOnly([
+          'id', 'name', 'category', 'pricePerDay', 'dimensions', 'tagline',
+          'description', 'popular', 'featured', 'bestFor', 'included',
+          'capacityNote', 'badge', 'zone', 'capacity', 'soldOut', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 150 &&
+        data.category in ['FOOD', 'BOOTH'] &&
+        (data.pricePerDay is int || data.pricePerDay is float) &&
+        data.pricePerDay >= 0 && data.pricePerDay <= 100000 &&
+        data.dimensions is string && data.dimensions.size() >= 1 && data.dimensions.size() <= 150 &&
+        isOptString(data, 'tagline', 300) &&
+        isOptString(data, 'description', 1000) &&
+        isOptBool(data, 'popular') &&
+        isOptBool(data, 'featured') &&
+        isOptString(data, 'bestFor', 500) &&
+        (!('included' in data) || isValidStringList(data.included, 0, 20, 250)) &&
+        isOptString(data, 'capacityNote', 500) &&
+        isOptString(data, 'badge', 100) &&
+        isOptString(data, 'zone', 150) &&
+        isOptNumber(data, 'capacity') &&
+        isOptBool(data, 'soldOut') &&
+        (!('updatedAt' in data) || isValidTimestampStr(data.updatedAt));
+    }
+
     // ---------------------------------------------------------
     // Collection Rules
     // ---------------------------------------------------------
@@ -535,6 +562,15 @@ service cloud.firestore {
       allow create: if isAdmin() && isValidId(configId) && isValidFestivalConfig(incoming());
       allow update: if isAdmin() && isValidId(configId) && isValidFestivalConfig(incoming());
       allow delete: if isAdmin() && isValidId(configId);
+    }
+
+    // Booth Tiers & Pricing (Public bounded read for application dialog; Admin write)
+    match /booth_tiers/{tierId} {
+      allow get: if isValidId(tierId);
+      allow list: if isAdmin() || (request.query.limit != null && request.query.limit <= 20);
+      allow create: if isAdmin() && isValidId(tierId) && isValidBoothTier(incoming());
+      allow update: if isAdmin() && isValidId(tierId) && isValidBoothTier(incoming());
+      allow delete: if isAdmin() && isValidId(tierId);
     }
 
     // Email Templates (Single-doc read for transactional dispatch; Admin manage)

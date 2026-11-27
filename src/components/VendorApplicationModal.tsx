@@ -20,7 +20,7 @@ import {
   Eye
 } from 'lucide-react';
 import { BOOTH_TIERS, EVENT_CONFIG, FESTIVAL_CONTACT_EMAIL, FESTIVAL_DAYS } from '../data/festivalData';
-import { BoothId, FestivalConfigData, OTHER_VENDOR_CATEGORY_VALUE, PaymentConfig, UNIFIED_VENDOR_CATEGORY_OPTIONS, VendorFormData } from '../types';
+import { BoothId, BoothTier, FestivalConfigData, OTHER_VENDOR_CATEGORY_VALUE, PaymentConfig, UNIFIED_VENDOR_CATEGORY_OPTIONS, VendorFormData } from '../types';
 import { createVendorApplication, submitVendorETransferAnswer, DEFAULT_ETRANSFER_EMAIL } from '../lib/firebase';
 import { sendVendorApplicationReceivedEmail } from '../lib/emailService';
 
@@ -31,6 +31,7 @@ interface VendorApplicationModalProps {
   initialDays?: Array<'fri' | 'sat' | 'sun'>;
   festivalConfig?: FestivalConfigData;
   paymentConfig?: PaymentConfig;
+  boothTiers?: BoothTier[];
   onOpenTracker?: (applicationId: string) => void;
 }
 
@@ -41,6 +42,7 @@ export const VendorApplicationModal: React.FC<VendorApplicationModalProps> = ({
   initialDays = ['fri', 'sat', 'sun'],
   festivalConfig,
   paymentConfig,
+  boothTiers = BOOTH_TIERS,
   onOpenTracker,
 }) => {
   const [selectedBoothId, setSelectedBoothId] = useState<BoothId>(initialBoothId);
@@ -131,7 +133,7 @@ export const VendorApplicationModal: React.FC<VendorApplicationModalProps> = ({
 
   if (!isOpen) return null;
 
-  const selectedTier = BOOTH_TIERS.find((b) => b.id === selectedBoothId) || BOOTH_TIERS[0];
+  const selectedTier = boothTiers.find((b) => b.id === selectedBoothId) || boothTiers[0] || BOOTH_TIERS[0];
   const isOtherVendorCategory =
     formData.vendorKind === OTHER_VENDOR_CATEGORY_VALUE ||
     formData.category === OTHER_VENDOR_CATEGORY_VALUE;
@@ -213,9 +215,9 @@ export const VendorApplicationModal: React.FC<VendorApplicationModalProps> = ({
 
   const formatDaysString = (days: Array<'fri' | 'sat' | 'sun'>) => {
     const map: Record<string, string> = {
-      fri: 'Day 1 (1:00pm - 5:30pm)',
-      sat: 'Day 2 (10:00am - 5:00pm)',
-      sun: 'Day 3 (10:00am - 6:00pm)',
+      fri: 'Friday (9:00 AM – 7:00 PM)',
+      sat: 'Saturday (9:00 AM – 7:00 PM)',
+      sun: 'Sunday (9:00 AM – 7:00 PM)',
     };
     return days.map((d) => map[d] || d).join(', ');
   };
@@ -292,7 +294,7 @@ What Kind Of Vendor Are You?: ${finalVendorCategory}
 Marketplace Category: ${finalVendorCategory}
 
 ===========================================
-2. BOOTH & DATES RESERVATION
+2. BOOTH & DAYS RESERVATION
 ===========================================
 Selected Space: ${selectedTier.name} (${selectedTier.dimensions})
 Daily Rate: $${selectedTier.pricePerDay}/day
@@ -478,7 +480,7 @@ Please review my registration and send confirmation and payment instructions to 
                 Vendor Space Application Form
               </h3>
               <p className="text-xs sm:text-sm text-[#6B6658]">
-                Select your booth option, pick your dates, and register your business for {EVENT_CONFIG.shortName}.
+                Select your booth option, choose your operating days (Fri–Sun, 9:00 AM – 7:00 PM), and register your business for {festivalConfig?.shortName || EVENT_CONFIG.shortName}.
               </p>
             </div>
 
@@ -570,7 +572,7 @@ Please review my registration and send confirmation and payment instructions to 
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                  {BOOTH_TIERS.map((tier) => {
+                  {boothTiers.map((tier) => {
                     const isSelected = tier.id === selectedBoothId;
                     return (
                       <button
@@ -1290,7 +1292,7 @@ Please review my registration and send confirmation and payment instructions to 
                   className="flex-1 py-3 rounded-full text-xs font-bold uppercase tracking-wider text-[#3D3A30] bg-white border border-[#E8E2D6] hover:bg-[#F0EBE0] transition-colors flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Eye className="w-4 h-4 text-[#5A5A40]" />
-                  <span>Track Application &amp; E-Transfer</span>
+                  <span>Track Application</span>
                 </button>
               )}
               <button

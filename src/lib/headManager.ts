@@ -138,8 +138,7 @@ export function updateDocumentHead(meta: PageHeadMeta) {
           'name': 'Community Vendor Marketplace & Festival Expo',
           'description': meta.description,
           'url': origin,
-          'startDate': '2026-10-02T10:00:00-04:00',
-          'endDate': '2026-10-04T20:00:00-04:00',
+          'openingHours': 'Fr-Su 09:00-19:00',
           'eventStatus': 'https://schema.org/EventScheduled',
           'eventAttendanceMode': 'https://schema.org/OfflineEventAttendanceMode',
           'location': {
@@ -159,8 +158,7 @@ export function updateDocumentHead(meta: PageHeadMeta) {
             'url': `${origin}/#vendor-booking`,
             'price': '0',
             'priceCurrency': 'USD',
-            'availability': 'https://schema.org/InStock',
-            'validFrom': '2026-01-01'
+            'availability': 'https://schema.org/InStock'
           },
           'organizer': {
             '@type': 'Organization',
@@ -191,10 +189,10 @@ export function updateDocumentHead(meta: PageHeadMeta) {
             },
             {
               '@type': 'Question',
-              'name': 'How do vendors apply for a booth space and what are the rates?',
+              'name': 'How do vendors apply for a booth space and review pricing?',
               'acceptedAnswer': {
                 '@type': 'Answer',
-                'text': 'Vendors apply online through our Vendor Booking Portal. Standard 10x10 booth spaces start at $70/day with 1 table, 2 chairs, overnight security, and multi-day discounts included.'
+                'text': 'Vendors apply online through our Vendor Application dialog to review live booth pricing, select their footprint, and reserve Friday through Sunday sessions (9:00 AM – 7:00 PM daily).'
               }
             },
             {

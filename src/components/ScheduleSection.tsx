@@ -8,45 +8,16 @@ import {
   CheckCircle, 
   Sun, 
   Utensils, 
-  Music, 
-  Download,
+  Printer,
   Info
 } from 'lucide-react';
-import { EVENT_CONFIG, FESTIVAL_DAYS, FESTIVAL_LOCATION, SCHEDULE_EVENTS } from '../data/festivalData';
+import { FESTIVAL_DAYS, SCHEDULE_EVENTS } from '../data/festivalData';
 
 export const ScheduleSection: React.FC = () => {
   const [selectedDayId, setSelectedDayId] = useState<'fri' | 'sat' | 'sun'>('fri');
 
   const activeDay = FESTIVAL_DAYS.find((d) => d.id === selectedDayId) || FESTIVAL_DAYS[0];
   const dayEvents = SCHEDULE_EVENTS.filter((e) => e.day === selectedDayId);
-
-  const handleDownloadCalendar = () => {
-    // Generate .ics calendar format with general festival schedule
-    const now = new Date();
-    const startYear = now.getFullYear();
-    const icsContent = `BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//${EVENT_CONFIG.shortName}//EN
-CALSCALE:GREGORIAN
-BEGIN:VEVENT
-SUMMARY:${EVENT_CONFIG.name}
-DESCRIPTION:${EVENT_CONFIG.description}
-LOCATION:${FESTIVAL_LOCATION}
-DTSTART:${startYear}1001T100000
-DTEND:${startYear}1003T180000
-STATUS:CONFIRMED
-END:VEVENT
-END:VCALENDAR`;
-
-    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', 'festival-schedule.ics');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
 
   return (
     <section id="schedule" className="py-20 bg-[#F0EBE0]/60 text-[#3D3A30] border-b border-[#E8E2D6]">
@@ -164,13 +135,14 @@ END:VCALENDAR`;
                 </ul>
               </div>
 
-              {/* Download iCal */}
+              {/* Print Operating Schedule */}
               <button
-                onClick={handleDownloadCalendar}
-                className="w-full py-3 rounded-full bg-white hover:bg-[#F0EBE0] border border-[#E8E2D6] text-[#5A5A40] text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors shadow-sm"
+                type="button"
+                onClick={() => window.print()}
+                className="w-full py-3 rounded-full bg-white hover:bg-[#F0EBE0] border border-[#E8E2D6] text-[#5A5A40] text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors shadow-sm cursor-pointer"
               >
-                <Download className="w-4 h-4 text-[#5A5A40]" />
-                Add Festival to Calendar (.ics)
+                <Printer className="w-4 h-4 text-[#5A5A40]" />
+                <span>Print Daily Schedule (9 AM – 7 PM)</span>
               </button>
 
             </div>
@@ -228,7 +200,7 @@ END:VCALENDAR`;
             <div>
               <span className="font-bold text-[#3D3A30] block">Multi-Day Security Included</span>
               <p className="text-[#6B6658] text-xs mt-0.5">
-                Vendors doing 2 or 3 consecutive days are free to leave setups behind overnight with security provided.
+                Vendors exhibiting across consecutive days (Fri–Sun) may safely leave canopies and fixtures overnight with perimeter security provided.
               </p>
             </div>
           </div>

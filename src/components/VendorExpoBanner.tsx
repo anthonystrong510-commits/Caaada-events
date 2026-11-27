@@ -77,7 +77,7 @@ export const VendorExpoBanner: React.FC<VendorExpoBannerProps> = ({ onOpenVendor
                 </button>
                 
                 <span className="text-xs text-[#A8C8C3] font-medium">
-                  Daily rates starting from $70/day
+                  Friday – Sunday &bull; 9:00 AM – 7:00 PM Daily
                 </span>
               </div>
             </div>

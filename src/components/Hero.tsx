@@ -9,6 +9,7 @@ import {
   Store
 } from 'lucide-react';
 import { EVENT_CONFIG, FESTIVAL_CONTACT_EMAIL, FESTIVAL_LOCATION } from '../data/festivalData';
+import { FestivalConfigData } from '../types';
 import heroPromenadeImg from '../assets/images/hero_festival_promenade_1795729714560.jpg';
 import liveStageImg from '../assets/images/festival_live_stage_1795729714383.jpg';
 import vendorFoodTruckImg from '../assets/images/vendor_food_truck_1787757253971.jpg';
@@ -18,14 +19,23 @@ interface HeroProps {
   onScrollToVendorBooking: () => void;
   onOpenVendorModal?: () => void;
   onOpenTrackerModal?: () => void;
+  festivalConfig?: FestivalConfigData;
 }
 
 export const Hero: React.FC<HeroProps> = ({
   onOpenAttendeeModal,
   onScrollToVendorBooking,
   onOpenVendorModal,
-  onOpenTrackerModal
+  onOpenTrackerModal,
+  festivalConfig
 }) => {
+  const contactEmail = festivalConfig?.contactEmail?.trim() || FESTIVAL_CONTACT_EMAIL;
+  const locationText = festivalConfig?.fullLocation?.trim() || FESTIVAL_LOCATION;
+  const durationBadgeText = festivalConfig?.durationBadge?.trim() || EVENT_CONFIG.durationBadge;
+  const locationBadgeText = festivalConfig?.locationBadge?.trim() || EVENT_CONFIG.locationBadge;
+  const admissionBadgeText = festivalConfig?.admissionBadge?.trim() || EVENT_CONFIG.admissionBadge;
+  const hoursSummaryText = festivalConfig?.datesSummary?.trim() || EVENT_CONFIG.datesSummary;
+
   const scrollToExperience = () => {
     const el = document.getElementById('experience');
     if (el) {
@@ -46,11 +56,11 @@ export const Hero: React.FC<HeroProps> = ({
             <div className="space-y-6">
               {/* Unboxed Editorial Metadata Kicker */}
               <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs font-semibold tracking-wider uppercase text-[#5A5A40]">
-                <span>{EVENT_CONFIG.locationBadge}</span>
+                <span>{locationBadgeText}</span>
                 <span aria-hidden="true" className="text-[#8A8576]">&middot;</span>
-                <span>{EVENT_CONFIG.durationBadge}</span>
+                <span>{durationBadgeText}</span>
                 <span aria-hidden="true" className="text-[#8A8576]">&middot;</span>
-                <span className="text-[#3D3A30]">{EVENT_CONFIG.admissionBadge}</span>
+                <span className="text-[#3D3A30]">{admissionBadgeText}</span>
               </div>
 
               <h1 className="text-4xl sm:text-5xl lg:text-[3.5rem] font-serif italic font-bold tracking-tight text-[#3D3A30] leading-[1.1] max-w-2xl [text-wrap:balance]">
@@ -61,7 +71,7 @@ export const Hero: React.FC<HeroProps> = ({
               </h1>
 
               <p className="text-base sm:text-lg text-[#6B6658] font-normal leading-relaxed max-w-2xl">
-                {EVENT_CONFIG.description} Stroll shaded promenades lined with independent artisans, sample gourmet street cuisine, and relax on the festival lawn to continuous live acoustic sets.
+                {festivalConfig?.description?.trim() || EVENT_CONFIG.description} Stroll shaded promenades lined with independent artisans, sample gourmet street cuisine, and relax on the festival lawn to continuous live acoustic sets.
               </p>
 
               {/* Primary CTA + Secondary Guide Action */}
@@ -109,7 +119,7 @@ export const Hero: React.FC<HeroProps> = ({
                       onClick={onOpenTrackerModal}
                       className="font-semibold text-[#5A5A40] hover:text-[#3D3A30] underline underline-offset-4 cursor-pointer"
                     >
-                      Track Application &amp; E-Transfer
+                      Track Application
                     </button>
                   </>
                 )}
@@ -121,15 +131,15 @@ export const Hero: React.FC<HeroProps> = ({
               <div className="flex items-start gap-2.5">
                 <MapPin className="w-4 h-4 text-[#5A5A40] shrink-0 mt-0.5" />
                 <div>
-                  <span className="block font-bold text-[#3D3A30]">{FESTIVAL_LOCATION}</span>
+                  <span className="block font-bold text-[#3D3A30]">{locationText}</span>
                   <span>Paved promenade, lawn stage &amp; free adjacent parking</span>
                 </div>
               </div>
               <div className="flex items-start gap-2.5">
                 <Clock className="w-4 h-4 text-[#5A5A40] shrink-0 mt-0.5" />
                 <div>
-                  <span className="block font-bold text-[#3D3A30]">Three-Day Festival Program</span>
-                  <span>Inquiries: <span className="font-mono text-[#5A5A40]">{FESTIVAL_CONTACT_EMAIL}</span></span>
+                  <span className="block font-bold text-[#3D3A30]">{hoursSummaryText}</span>
+                  <span>Inquiries: <span className="font-mono text-[#5A5A40]">{contactEmail}</span></span>
                 </div>
               </div>
             </div>
@@ -203,8 +213,8 @@ export const Hero: React.FC<HeroProps> = ({
             <div className="text-xs text-[#6B6658] mt-1">Street food, craft coffee, bakery &amp; desserts</div>
           </div>
           <div>
-            <div className="text-2xl sm:text-3xl font-serif italic font-bold text-[#3D3A30] tabular-nums">3 Days</div>
-            <div className="text-xs font-semibold text-[#5A5A40] mt-0.5">Continuous Live Stage</div>
+            <div className="text-2xl sm:text-3xl font-serif italic font-bold text-[#3D3A30] tabular-nums">Fri – Sun</div>
+            <div className="text-xs font-semibold text-[#5A5A40] mt-0.5">9:00 AM – 7:00 PM Daily</div>
             <div className="text-xs text-[#6B6658] mt-1">Acoustic sessions, jazz sets &amp; cultural dance</div>
           </div>
           <div>

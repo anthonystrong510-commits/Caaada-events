@@ -58,12 +58,12 @@ export const EVENT_CONFIG: EventConfig = {
   fullLocation: 'Outdoor Festival Park & Marketplace Grounds',
   mapQuery: 'Festival Park',
 
-  datesSummary: 'Outdoor Community Festival & Marketplace',
-  durationBadge: 'Outdoor Festival & Market',
+  datesSummary: 'Friday – Sunday · 9:00 AM – 7:00 PM Daily',
+  durationBadge: 'Fri – Sun · 9 AM – 7 PM',
   admissionBadge: 'Free Public Admission',
   locationBadge: 'Marketplace Grounds',
 
-  contactEmail: 'festvendorstate@gmail.com',
+  contactEmail: 'organizers@festivalmarket.org',
   freeAdmission: true,
 };
 
@@ -75,36 +75,36 @@ export const FESTIVAL_CONTACT_EMAIL = EVENT_CONFIG.contactEmail;
 export const FESTIVAL_DAYS: FestivalDay[] = [
   {
     id: 'fri',
-    dayName: 'Day 1',
-    shortDay: 'Day 1',
-    dateStr: 'Opening Twilight Showcase',
-    hours: '1:00 PM – 5:30 PM',
-    setupTime: 'Morning Load-In & Inspection (8:00 AM – 12:30 PM)',
-    title: 'Grand Opening & Twilight Showcase',
-    highlights: ['Designated Load-In Window', 'Opening Bell Ceremony', 'Acoustic Music Sessions', 'Gourmet Food Truck Gathering'],
-    breakdownNotice: 'Booths remain active through festival hours. Load-out begins at 5:30 PM.',
+    dayName: 'Friday',
+    shortDay: 'Fri',
+    dateStr: 'Friday Session',
+    hours: '9:00 AM – 7:00 PM',
+    setupTime: 'Morning Load-In & Check-In (7:30 AM – 8:45 AM)',
+    title: 'Friday Opening & Twilight Showcase',
+    highlights: ['Morning Load-In Window', '9:00 AM Opening Bell', 'Acoustic Music Sessions', 'Gourmet Food Truck Gathering'],
+    breakdownNotice: 'Booths remain open until 7:00 PM closing. Load-out or overnight secure staging follows.',
   },
   {
     id: 'sat',
-    dayName: 'Day 2',
-    shortDay: 'Day 2',
-    dateStr: 'Main Festival & Arts Expo',
-    hours: '10:00 AM – 5:00 PM',
-    setupTime: 'Morning Restock & Check-in (8:00 AM – 9:45 AM)',
-    title: 'Community Festival & Arts Expo',
-    highlights: ['Peak Foot Traffic', 'Live Mainstage Music', 'Family & Kids Creative Zone', 'Artisan Demonstrations'],
-    breakdownNotice: 'Booths remain open until 5:00 PM closing. Breakdown begins after patron egress.',
+    dayName: 'Saturday',
+    shortDay: 'Sat',
+    dateStr: 'Saturday Session',
+    hours: '9:00 AM – 7:00 PM',
+    setupTime: 'Morning Restock & Check-In (7:30 AM – 8:45 AM)',
+    title: 'Saturday Festival & Arts Expo',
+    highlights: ['Full-Day Foot Traffic', 'Live Mainstage Music', 'Family & Kids Creative Zone', 'Artisan Demonstrations'],
+    breakdownNotice: 'Booths remain open until 7:00 PM closing. Breakdown begins after patron egress.',
   },
   {
     id: 'sun',
-    dayName: 'Day 3',
-    shortDay: 'Day 3',
-    dateStr: 'Makers Market & Finale',
-    hours: '10:00 AM – 6:00 PM',
-    setupTime: 'Morning Restock & Check-in (8:00 AM – 9:45 AM)',
-    title: 'Makers Market & Festival Finale',
+    dayName: 'Sunday',
+    shortDay: 'Sun',
+    dateStr: 'Sunday Session',
+    hours: '9:00 AM – 7:00 PM',
+    setupTime: 'Morning Restock & Check-In (7:30 AM – 8:45 AM)',
+    title: 'Sunday Makers Market & Finale',
     highlights: ['Farmers & Makers Showcase', 'Gourmet Food Carts', 'Community Honors', 'Grand Finale Performances'],
-    breakdownNotice: 'Final festival breakdown begins at 6:00 PM closing celebration.',
+    breakdownNotice: 'Final festival breakdown begins after the 7:00 PM closing celebration.',
   },
 ];
 
@@ -350,7 +350,7 @@ export const ATTENDEE_EXPERIENCES = [
     id: 'exp-3',
     title: 'Live Acoustic & Jazz Performances',
     tagline: 'Open-Air Amphitheater Stage',
-    description: 'Settle in on the lawn and enjoy free acoustic sets, soulful jazz ensembles, and vibrant cultural performances throughout the entire three-day gathering.',
+    description: 'Settle in on the lawn and enjoy free acoustic sets, soulful jazz ensembles, and vibrant cultural performances throughout Friday, Saturday, and Sunday (9:00 AM – 7:00 PM daily).',
     image: liveStageImg,
     perk: 'Continuous free live music in the outdoor amphitheater',
   },
@@ -381,29 +381,29 @@ export const ATTENDEE_EXPERIENCES = [
 ];
 
 export const SCHEDULE_EVENTS: ScheduleEvent[] = [
-  // Day 1
+  // Friday Program (9:00 AM – 7:00 PM)
   {
     id: 'sch-1',
     day: 'fri',
-    time: 'Morning Setup Window',
+    time: '7:30 AM – 8:45 AM',
     title: 'Vendor Check-in & Morning Setup Window',
     location: 'Assigned Zones & Promenade',
-    description: 'Registered vendors have dedicated morning access prior to opening to check in, receive table & chairs, load in, and stage displays without rush.',
+    description: 'Registered vendors have dedicated morning access prior to 9:00 AM opening to check in, receive table & chairs, load in, and stage displays without rush.',
     type: 'market',
   },
   {
     id: 'sch-2',
     day: 'fri',
-    time: '1:00 PM',
+    time: '9:00 AM',
     title: 'Festival Opening Bell & Public Gates Open',
     location: 'Main Stage & Promenade Gate',
-    description: 'The outdoor marketplace opens to the public with welcoming music, fresh aromas, and early-bird shopping.',
+    description: 'The outdoor marketplace opens to the public at 9:00 AM with welcoming music, fresh aromas, and early-bird artisan shopping.',
     type: 'entertainment',
   },
   {
     id: 'sch-3',
     day: 'fri',
-    time: '2:30 PM – 4:00 PM',
+    time: '12:00 PM – 2:30 PM',
     title: 'Acoustic Guitar & Folk Duo',
     location: 'Amphitheater Stage',
     description: 'Enjoy calming acoustic melodies as you stroll the artisan promenade.',
@@ -412,39 +412,39 @@ export const SCHEDULE_EVENTS: ScheduleEvent[] = [
   {
     id: 'sch-4',
     day: 'fri',
-    time: '4:00 PM – 5:30 PM',
-    title: 'Twilight Food Truck Social & Sunset Shopping',
+    time: '3:30 PM – 5:15 PM',
+    title: 'Afternoon Food Truck Social & Makers Showcase',
     location: 'Food Truck Row & Lawn',
-    description: 'Sample gourmet dinners and sweet treats as golden hour sets over the festival grounds.',
+    description: 'Sample gourmet street plates and sweet treats alongside live craft booth demonstrations.',
     type: 'food',
   },
   {
     id: 'sch-4b',
     day: 'fri',
-    time: '5:30 PM – 7:30 PM',
-    title: 'Sunset Waterfront Concert & Twilight Social Hour',
-    location: 'Riverfront Pavilion & Promenade',
-    description: 'Live acoustic sets along the water with twilight food truck dining, local craft beverage tastings, and golden hour artisan shopping.',
+    time: '5:30 PM – 7:00 PM',
+    title: 'Evening Concert & Twilight Social Hour',
+    location: 'Central Pavilion & Promenade',
+    description: 'Live evening acoustic sets with twilight food truck dining and shopping through the 7:00 PM close.',
     type: 'entertainment',
   },
 
-  // Day 2
+  // Saturday Program (9:00 AM – 7:00 PM)
   {
     id: 'sch-5',
     day: 'sat',
-    time: '8:00 AM – 10:00 AM',
+    time: '7:30 AM – 8:45 AM',
     title: 'Morning Restock & Vendor Coffee Refresh',
     location: 'Vendor Marketplace Grounds',
-    description: 'Morning preparation for vendors before crowds arrive. Overnight secure staging remains active.',
+    description: 'Morning preparation for vendors before 9:00 AM gates open. Overnight secure staging remains active.',
     type: 'market',
   },
   {
     id: 'sch-6',
     day: 'sat',
-    time: '10:00 AM',
-    title: 'Community Festival & Marketplace Grand Open',
+    time: '9:00 AM',
+    title: 'Saturday Festival & Marketplace Gates Open',
     location: 'All Grounds & Pavilions',
-    description: 'All booths, food trucks, and interactive family activities in full swing.',
+    description: 'All booths, gourmet food trucks, and interactive family activities open at 9:00 AM.',
     type: 'market',
   },
   {
@@ -459,7 +459,7 @@ export const SCHEDULE_EVENTS: ScheduleEvent[] = [
   {
     id: 'sch-8',
     day: 'sat',
-    time: '1:00 PM – 3:30 PM',
+    time: '2:00 PM – 4:00 PM',
     title: 'Live R&B, Jazz & Community Ensemble Band',
     location: 'Main Stage',
     description: 'Dynamic upbeat live musical performances for the whole family.',
@@ -468,7 +468,7 @@ export const SCHEDULE_EVENTS: ScheduleEvent[] = [
   {
     id: 'sch-9',
     day: 'sat',
-    time: '2:00 PM – 4:00 PM',
+    time: '2:00 PM – 4:30 PM',
     title: 'Kids Fun Zone: Face Painting & Lawn Games',
     location: 'Family Meadow',
     description: 'Free creative crafts, interactive games, and face painting for children.',
@@ -477,30 +477,30 @@ export const SCHEDULE_EVENTS: ScheduleEvent[] = [
   {
     id: 'sch-9b',
     day: 'sat',
-    time: '5:30 PM – 8:00 PM',
-    title: 'Golden Hour Artisan Showcase & Live String Ensemble',
+    time: '5:00 PM – 7:00 PM',
+    title: 'Early Evening Artisan Showcase & Live String Ensemble',
     location: 'Central Pavilion Lawn & Food Row',
-    description: 'Ambient strings, illuminated evening artisan exhibits, and sunset outdoor dining under festoon lighting along the central lawn.',
+    description: 'Ambient strings, illuminated artisan exhibits, and outdoor dining through the 7:00 PM closing bell.',
     type: 'entertainment',
   },
 
-  // Day 3
+  // Sunday Program (9:00 AM – 7:00 PM)
   {
     id: 'sch-10',
     day: 'sun',
-    time: '8:00 AM – 10:00 AM',
+    time: '7:30 AM – 8:45 AM',
     title: 'Morning Vendor Arrival & Restock',
     location: 'Marketplace Zones',
-    description: 'Restocking merchandise and setting up for the final festival session.',
+    description: 'Restocking merchandise and setting up prior to 9:00 AM Sunday opening.',
     type: 'market',
   },
   {
     id: 'sch-11',
     day: 'sun',
-    time: '10:00 AM',
+    time: '9:00 AM – 12:00 PM',
     title: 'Makers Market & Gourmet Brunch Gathering',
     location: 'Food Truck Row & Promenade',
-    description: 'Artisan pastries, breakfast street food, espresso carts, and fresh local goods.',
+    description: 'Artisan pastries, breakfast street food, espresso carts, and fresh local goods starting at 9:00 AM.',
     type: 'food',
   },
   {
@@ -515,10 +515,10 @@ export const SCHEDULE_EVENTS: ScheduleEvent[] = [
   {
     id: 'sch-13',
     day: 'sun',
-    time: '4:30 PM – 6:00 PM',
+    time: '4:30 PM – 7:00 PM',
     title: 'Festival Awards, Community Raffles & Finale',
     location: 'Central Plaza Stage',
-    description: 'Best in Show booth awards, customer raffle giveaways, and sunset closing celebration.',
+    description: 'Best in Show booth awards, customer raffle giveaways, and closing celebration wrapping up at 7:00 PM.',
     type: 'entertainment',
   },
 ];
@@ -593,9 +593,9 @@ export const VENDOR_POLICIES_FAQ: FaqItem[] = [
   },
   {
     category: 'Registration & Pricing',
-    q: 'What booth sizes are available and what are the daily space rates?',
-    a: 'We offer multiple footprint tiers: Standard 10×10 Canopy Space ($70/day), Double 10×20 Artisan Pavilion ($100/day), Corner / High-Footfall Main Street Booth ($95/day), Gourmet Food Truck / Concession Space ($110/day), Mobile Beverage & Espresso Cart ($65/day), and Non-Profit Community Info Table ($35/day). Multi-day discounts apply automatically.',
-    keywords: ['booth rates', '10x10 booth', '10x20 double booth', 'food truck space fee', 'festival pricing']
+    q: 'What booth sizes and spaces are available, and where do I view pricing?',
+    a: 'We offer Standard 10×10 Canopy Spaces, Double 10×20 Artisan Pavilions, Corner / High-Footfall Main Street Booths, Extra Large 20×20 Pavilions, and Gourmet Food Truck Bays. Current daily rates and total multi-day calculations for Friday, Saturday, and Sunday are displayed live inside the Vendor Application dialog when selecting your space.',
+    keywords: ['booth sizes', '10x10 booth', '10x20 double booth', 'food truck space', 'vendor application pricing']
   },
   {
     category: 'Registration & Pricing',
@@ -620,13 +620,13 @@ export const VENDOR_POLICIES_FAQ: FaqItem[] = [
   {
     category: 'Booth Setup & Logistics',
     q: 'What is the daily load-in, staging, vehicle access, and restock schedule?',
-    a: 'Drive-up load-in is open daily between 8:00 AM and 12:30 PM on Day 1, and 8:00 AM to 9:45 AM on Days 2 & 3. Vehicles must unload merchandise at the designated loading dock bays and immediately be moved to the complimentary vendor parking lot before erecting booths. Mid-day vehicle traffic in pedestrian zones is strictly prohibited.',
+    a: 'Drive-up load-in is open daily between 7:30 AM and 8:45 AM Friday through Sunday ahead of the 9:00 AM public opening. Festival marketplace hours run 9:00 AM – 7:00 PM each day. Vehicles must unload at the designated loading dock bays and be moved to the complimentary vendor parking lot before opening.',
     keywords: ['load-in schedule', 'vendor parking', 'staging access', 'morning restock', 'drive-up unloading']
   },
   {
     category: 'Booth Setup & Logistics',
     q: 'Is there overnight security provided for multi-day reservations?',
-    a: 'Yes. Dedicated, licensed overnight security guards patrol the gated perimeter and grounds from closing time until morning reopening. Multi-day vendors may safely leave securely weighted tent frames, sturdy tables, and heavy fixtures overnight. We recommend taking valuable cash boxes, credit card terminals, and fine jewelry with you overnight.',
+    a: 'Yes. Dedicated, licensed overnight security guards patrol the gated perimeter and grounds from 7:00 PM closing until morning reopening. Multi-day vendors may safely leave securely weighted tent frames, sturdy tables, and heavy fixtures overnight. We recommend taking valuable cash boxes, credit card terminals, and fine jewelry with you overnight.',
     keywords: ['overnight security', 'multi-day vendor', 'guarded grounds', 'perimeter patrol', 'merchandise safety']
   },
 
@@ -634,7 +634,7 @@ export const VENDOR_POLICIES_FAQ: FaqItem[] = [
   {
     category: 'Electrical & Utilities',
     q: 'Is electrical power available at artisan booths and food truck spaces?',
-    a: 'Standard artisan booths are non-powered outdoor spaces. Optional 20-Amp 110V dedicated electrical hookup drops can be added to any reservation for $75. Food trucks and culinary trailers are provided with dedicated 30-Amp or 50-Amp NEMA connections upon request. Ultra-quiet inverter generators (<60 dB) are permitted with prior notification.',
+    a: 'Standard artisan booths are non-powered outdoor spaces, with optional 20-Amp 110V dedicated electrical drops available upon request during application. Food trucks and culinary trailers are provided with dedicated 30-Amp or 50-Amp NEMA connections upon request. Ultra-quiet inverter generators (<60 dB) are permitted with prior notification.',
     keywords: ['festival electricity', '20 amp power', 'generator rules', 'quiet inverter', '50 amp hookup']
   },
   {
@@ -681,15 +681,15 @@ export const VENDOR_POLICIES_FAQ: FaqItem[] = [
   // 6. Payments & Invoicing
   {
     category: 'Payments & Invoicing',
-    q: 'What payment methods can vendors use to pay for booth spaces and invoices?',
-    a: 'Our secure payment portal supports all major payment channels: Credit and Debit Cards, Bank Wire / ACH Transfer, Zelle, CashApp ($Cashtag), and Kraken Pay. For cryptocurrency users, we natively accept USDT (TRC-20, ERC-20, Solana), Ethereum (ETH & ENS), and Bitcoin (BTC & Lightning Network) with instant cryptographic receipt generation.',
-    keywords: ['booth fee payment', 'credit card checkout', 'crypto festival payment', 'USDT TRC20', 'CashApp', 'Zelle payment']
+    q: 'What payment methods can vendors use to pay for booth reservations?',
+    a: 'Payments for booth reservations are processed through E-Transfer. After submitting your vendor application, your total calculated fee and E-Transfer recipient instructions are shown directly in your confirmation dialog and Application Tracker, where you can submit your security question answer or confirmation details for verification.',
+    keywords: ['booth fee payment', 'e-transfer payment', 'vendor invoice', 'security question answer', 'booth reservation']
   },
   {
     category: 'Payments & Invoicing',
-    q: 'How do I access and print my official vendor invoice and receipt?',
-    a: 'Every approved application generates a unique invoice URL (e.g. /?invoice=INV-2026-001) linked directly to your confirmation email. From our Public Invoice Portal, you can review itemized booth fees, select your preferred payment gateway, submit proof of transaction, and download or print official accounting receipts.',
-    keywords: ['print vendor invoice', 'invoice checkout portal', 'receipt download', 'accounting documentation']
+    q: 'How do I check my application status and access my reservation details?',
+    a: 'Use the Track Application dialog with your Reference ID and registered email to view your assigned booth tier, calculated total fee, review approval status, and E-Transfer payment verification status anytime.',
+    keywords: ['track application', 'vendor portal', 'receipt download', 'booth reservation status']
   },
 
   // 7. Attendee & General Info

@@ -11,8 +11,14 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { FESTIVAL_CONTACT_EMAIL, VENDOR_POLICIES_FAQ } from '../data/festivalData';
+import { FestivalConfigData } from '../types';
 
-export const FaqAndGuidelines: React.FC = () => {
+interface FaqAndGuidelinesProps {
+  festivalConfig?: FestivalConfigData;
+}
+
+export const FaqAndGuidelines: React.FC<FaqAndGuidelinesProps> = ({ festivalConfig }) => {
+  const contactEmail = festivalConfig?.contactEmail?.trim() || FESTIVAL_CONTACT_EMAIL;
   const [openIndices, setOpenIndices] = useState<Set<number>>(new Set([0, 1]));
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
@@ -239,11 +245,11 @@ export const FaqAndGuidelines: React.FC = () => {
 
           <div className="flex flex-wrap items-center justify-center gap-3">
             <a
-              href={`mailto:${FESTIVAL_CONTACT_EMAIL}`}
+              href={`mailto:${contactEmail}`}
               className="px-6 py-3 rounded-full bg-white hover:bg-[#F0EBE0] text-[#5A5A40] font-bold uppercase tracking-wider text-xs flex items-center gap-2 transition-colors shadow-sm cursor-pointer"
             >
               <Mail className="w-4 h-4 text-[#5A5A40]" />
-              <span>Email: {FESTIVAL_CONTACT_EMAIL}</span>
+              <span>Email: {contactEmail}</span>
             </a>
           </div>
         </div>

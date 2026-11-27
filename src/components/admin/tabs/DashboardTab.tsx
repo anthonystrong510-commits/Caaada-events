@@ -21,6 +21,7 @@ import {
   VendorApplicationRecord, 
   AttendeeRsvpRecord, 
   AdminTab,
+  BoothTier,
   PaymentConfig,
   Invoice
 } from '../../../types';
@@ -32,6 +33,7 @@ interface DashboardTabProps {
   attendees: AttendeeRsvpRecord[];
   invoices?: Invoice[];
   paymentConfig?: PaymentConfig;
+  boothTiers?: BoothTier[];
   onSelectTab: (tab: AdminTab) => void;
   onSelectApplication: (app: VendorApplicationRecord) => void;
   onQuickApproveApplication: (id: string) => void;
@@ -45,6 +47,7 @@ export function DashboardTab({
   attendees,
   invoices = [],
   paymentConfig,
+  boothTiers = BOOTH_TIERS,
   onSelectTab,
   onSelectApplication,
   onQuickApproveApplication,
@@ -361,7 +364,7 @@ export function DashboardTab({
           </div>
 
           <div className="space-y-3.5">
-            {BOOTH_TIERS.map((tier) => {
+            {boothTiers.map((tier) => {
               const booked = boothCounts[tier.id] || 0;
               const maxCap = tier.capacity || 20;
               const percent = Math.min(100, Math.round((booked / maxCap) * 100));

@@ -16,11 +16,13 @@ import { Footer } from './components/Footer';
 import { KingAdminPortal } from './components/admin/KingAdminPortal';
 import { PublicInvoiceView } from './components/checkout/PublicInvoiceView';
 import { Store, Ticket } from 'lucide-react';
-import { BoothId, FestivalConfigData, PaymentConfig } from './types';
+import { BoothId, BoothTier, FestivalConfigData, PaymentConfig } from './types';
+import { BOOTH_TIERS } from './data/festivalData';
 import { updateDocumentHead } from './lib/headManager';
 import {
   subscribeFestivalConfig,
   subscribePaymentConfig,
+  subscribeBoothTiers,
   DEFAULT_FESTIVAL_CONFIG,
   DEFAULT_PAYMENT_CONFIG
 } from './lib/firebase';
@@ -58,6 +60,7 @@ export default function App() {
   const [activeInvoiceId, setActiveInvoiceId] = useState<string | null>(() => getInvoiceFromUrl());
   const [festivalConfig, setFestivalConfig] = useState<FestivalConfigData>(DEFAULT_FESTIVAL_CONFIG);
   const [paymentConfig, setPaymentConfig] = useState<PaymentConfig>(DEFAULT_PAYMENT_CONFIG);
+  const [boothTiers, setBoothTiers] = useState<BoothTier[]>(BOOTH_TIERS);
 
   const [attendeeModalOpen, setAttendeeModalOpen] = useState(false);
   const [vendorModalOpen, setVendorModalOpen] = useState(false);
@@ -78,7 +81,7 @@ export default function App() {
   const [modalBoothId, setModalBoothId] = useState<BoothId>('tent-10x10');
   const [modalDays, setModalDays] = useState<Array<'fri' | 'sat' | 'sun'>>(['fri', 'sat', 'sun']);
 
-  // Subscribe to persistent festival & payment configs from Firebase
+  // Subscribe to persistent festival, payment, and booth tier configs from Firebase
   useEffect(() => {
     const unsubFest = subscribeFestivalConfig((cfg) => {
       if (cfg) setFestivalConfig(cfg);
@@ -86,9 +89,13 @@ export default function App() {
     const unsubPayment = subscribePaymentConfig((cfg) => {
       if (cfg) setPaymentConfig(cfg);
     });
+    const unsubBooths = subscribeBoothTiers((tiers) => {
+      if (tiers && tiers.length > 0) setBoothTiers(tiers);
+    });
     return () => {
       unsubFest();
       unsubPayment();
+      unsubBooths();
     };
   }, []);
 
@@ -119,7 +126,7 @@ export default function App() {
 
       updateDocumentHead({
         title: festivalConfig?.seoTitle || 'Community Artisan Marketplace & Festival',
-        description: festivalConfig?.seoDescription || 'An open-air 3-day community celebration bringing together local makers, artisan crafts, gourmet food trucks, and live music. Free public admission.',
+        description: festivalConfig?.seoDescription || 'An open-air community celebration Friday through Sunday (9:00 AM – 7:00 PM) bringing together local makers, artisan crafts, gourmet food trucks, and live music. Free public admission.',
         canonicalPath: '/',
         noIndex: false,
         customOrigin,
@@ -236,6 +243,7 @@ export default function App() {
           onScrollToVendorBooking={scrollToVendorBooking}
           onOpenVendorModal={() => handleOpenVendorModal('tent-10x10')}
           onOpenTrackerModal={() => handleOpenTrackerModal('')}
+          festivalConfig={festivalConfig}
         />
 
         {/* Outdoor Attendee Experience & Discovery */}
@@ -260,6 +268,7 @@ export default function App() {
         <SpotlightSection
           onScrollToVendorBooking={scrollToVendorBooking}
           onOpenVendorModal={() => handleOpenVendorModal('tent-10x10')}
+          festivalConfig={festivalConfig}
         />
 
         {/* Vendors Needed & Exposure Banner */}
@@ -267,14 +276,15 @@ export default function App() {
           onOpenVendorModal={() => handleOpenVendorModal('tent-10x10')}
         />
 
-        {/* Dedicated Vendor Booking Portal & Space Rates */}
+        {/* Dedicated Vendor Booking Portal */}
         <VendorBookingPortal 
           onOpenVendorModal={handleOpenVendorModal}
           onOpenTrackerModal={() => handleOpenTrackerModal('')}
+          boothTiers={boothTiers}
         />
 
         {/* FAQ & Guidelines Accordion */}
-        <FaqAndGuidelines />
+        <FaqAndGuidelines festivalConfig={festivalConfig} />
       </main>
 
       {/* Footer */}
@@ -284,6 +294,7 @@ export default function App() {
         onOpenVendorModal={() => handleOpenVendorModal('tent-10x10')}
         onOpenTrackerModal={() => handleOpenTrackerModal('')}
         onNavigateToAdmin={navigateToAdmin}
+        festivalConfig={festivalConfig}
       />
 
       {/* Attendee RSVP / Free Ticket Pass Modal */}
@@ -300,19 +311,21 @@ export default function App() {
         initialDays={modalDays}
         festivalConfig={festivalConfig}
         paymentConfig={paymentConfig}
+        boothTiers={boothTiers}
         onOpenTracker={(appId) => {
           setVendorModalOpen(false);
           handleOpenTrackerModal(appId);
         }}
       />
 
-      {/* Vendor Application & E-Transfer Tracker Dialog */}
+      {/* Vendor Application Tracker Dialog */}
       <VendorTrackerModal
         isOpen={trackerModalOpen}
         onClose={() => setTrackerModalOpen(false)}
         initialQuery={trackerInitialQuery}
         paymentConfig={paymentConfig}
         festivalConfig={festivalConfig}
+        boothTiers={boothTiers}
       />
 
       {/* Floating Mobile Quick Action Bar */}

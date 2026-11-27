@@ -89,16 +89,16 @@ export function EmailCenterTab({
     application_id: 'APP-82914',
     selected_booth: 'Corner 10x10 Tent ($125/day)',
     booth_zone: 'Promenade Row A - Booth 104',
-    selected_days: 'Day 1, Day 2, Day 3',
+    selected_days: 'Friday, Saturday, Sunday',
     total_fee: '$375.00',
-    festival_name: 'Community Artisan & Culinary Festival',
-    venue_name: 'Columbia County Fairgrounds',
-    venue_address: 'Fairgrounds Pavilion & Green',
-    dates_summary: '3-Day Annual Showcase',
+    festival_name: festivalConfig?.name || 'Community Artisan & Culinary Festival',
+    venue_name: festivalConfig?.venueName || 'Columbia County Fairgrounds',
+    venue_address: festivalConfig?.address || 'Fairgrounds Pavilion & Green',
+    dates_summary: festivalConfig?.datesSummary || 'Friday – Sunday · 9:00 AM – 7:00 PM Daily',
     attendee_name: 'Sarah Jenkins',
     pass_code: 'PASS-892104',
     group_size: '3',
-    inquiry_email: 'inquiries@festivalmarket.org',
+    inquiry_email: festivalConfig?.contactEmail || 'organizers@festivalmarket.org',
     website_url: 'https://festivalmarket.org'
   };
 

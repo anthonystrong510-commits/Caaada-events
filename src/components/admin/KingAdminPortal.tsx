@@ -11,8 +11,10 @@ import {
   Invoice,
   EventLocationMarket,
   ScheduleEvent,
-  VendorTrackerRecord
+  VendorTrackerRecord,
+  BoothTier
 } from '../../types';
+import { BOOTH_TIERS } from '../../data/festivalData';
 import { 
   auth, 
   adminSignOut,
@@ -23,6 +25,7 @@ import {
   subscribeSmtpConfig,
   subscribeFestivalConfig,
   subscribePaymentConfig,
+  subscribeBoothTiers,
   subscribeInvoices,
   updateVendorApplicationStatus,
   deleteVendorApplication,
@@ -34,6 +37,8 @@ import {
   saveSmtpConfig,
   saveFestivalConfig,
   savePaymentConfig,
+  saveBoothTier,
+  resetBoothTiersToDefault,
   seedSampleData,
   DEFAULT_SMTP_CONFIG,
   DEFAULT_FESTIVAL_CONFIG,
@@ -98,6 +103,7 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
   const [smtpConfig, setSmtpConfig] = useState<SmtpConfigData>(DEFAULT_SMTP_CONFIG);
   const [festivalConfig, setFestivalConfig] = useState<FestivalConfigData>(DEFAULT_FESTIVAL_CONFIG);
   const [paymentConfig, setPaymentConfig] = useState<PaymentConfig>(DEFAULT_PAYMENT_CONFIG);
+  const [boothTiers, setBoothTiers] = useState<BoothTier[]>(BOOTH_TIERS);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [eventLocations, setEventLocations] = useState<EventLocationMarket[]>([]);
   const [scheduleEvents, setScheduleEvents] = useState<ScheduleEvent[]>([]);
@@ -164,6 +170,7 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
     const unsubSmtp = subscribeSmtpConfig((cfg) => setSmtpConfig(cfg));
     const unsubFest = subscribeFestivalConfig((cfg) => setFestivalConfig(cfg));
     const unsubPayments = subscribePaymentConfig((cfg) => setPaymentConfig(cfg));
+    const unsubBooths = subscribeBoothTiers((tiers) => setBoothTiers(tiers));
     const unsubInvoices = subscribeInvoices((invs) => setInvoices(invs));
     const unsubLocations = subscribeEventLocations((locs) => setEventLocations(locs));
     const unsubSchedule = subscribeScheduleEvents((evts) => setScheduleEvents(evts));
@@ -176,6 +183,7 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
       unsubSmtp();
       unsubFest();
       unsubPayments();
+      unsubBooths();
       unsubInvoices();
       unsubLocations();
       unsubSchedule();
@@ -377,8 +385,8 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
         venue_name: festivalConfig.venueName,
         location: festivalConfig.address,
         physical_address: festivalConfig.address,
-        contact_email: smtpConfig.fromEmail,
-        inquiry_email: smtpConfig.fromEmail,
+        contact_email: festivalConfig.contactEmail || smtpConfig.fromEmail,
+        inquiry_email: festivalConfig.contactEmail || smtpConfig.fromEmail,
         etransfer_email: paymentConfig.eTransferEmail?.trim() || DEFAULT_ETRANSFER_EMAIL,
         tracker_url: `${window.location.origin}/?track=${encodeURIComponent(app.id)}`,
         website_url: window.location.origin,
@@ -408,8 +416,8 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
         venue_address: festivalConfig.address,
         location: festivalConfig.address,
         dates_summary: festivalConfig.datesSummary,
-        contact_email: smtpConfig.fromEmail,
-        inquiry_email: smtpConfig.fromEmail,
+        contact_email: festivalConfig.contactEmail || smtpConfig.fromEmail,
+        inquiry_email: festivalConfig.contactEmail || smtpConfig.fromEmail,
         website_url: window.location.origin
       },
       status: 'idle'
@@ -632,6 +640,7 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
                 attendees={attendees}
                 invoices={invoices}
                 paymentConfig={paymentConfig}
+                boothTiers={boothTiers}
                 onSelectTab={setCurrentTab}
                 onSelectApplication={(app) => {
                   setSelectedAppForInspector(app);
@@ -660,6 +669,7 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
                 paymentConfig={paymentConfig}
                 smtpConfig={smtpConfig}
                 festivalConfig={festivalConfig}
+                boothTiers={boothTiers}
               />
             )}
 
@@ -689,7 +699,12 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
             )}
 
             {currentTab === 'booths' && (
-              <BoothsManagerTab applications={mergedApplications} />
+              <BoothsManagerTab
+                applications={mergedApplications}
+                boothTiers={boothTiers}
+                onSaveTier={saveBoothTier}
+                onResetTiers={resetBoothTiersToDefault}
+              />
             )}
 
             {currentTab === 'schedule' && (

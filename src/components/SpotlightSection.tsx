@@ -1,13 +1,20 @@
 import React from 'react';
 import { Camera, Mail, ArrowRight, Quote, Heart, Store, Users, Palette, Sun } from 'lucide-react';
 import { EVENT_CONFIG, FESTIVAL_CONTACT_EMAIL, VENDOR_SPOTLIGHTS } from '../data/festivalData';
+import { FestivalConfigData } from '../types';
 
 interface SpotlightSectionProps {
   onScrollToVendorBooking: () => void;
   onOpenVendorModal?: () => void;
+  festivalConfig?: FestivalConfigData;
 }
 
-export const SpotlightSection: React.FC<SpotlightSectionProps> = ({ onScrollToVendorBooking, onOpenVendorModal }) => {
+export const SpotlightSection: React.FC<SpotlightSectionProps> = ({
+  onScrollToVendorBooking,
+  onOpenVendorModal,
+  festivalConfig
+}) => {
+  const contactEmail = festivalConfig?.contactEmail?.trim() || FESTIVAL_CONTACT_EMAIL;
   return (
     <section id="spotlights" className="py-20 bg-[#FDFBF7] text-[#3D3A30] border-b border-[#E8E2D6]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -106,7 +113,7 @@ export const SpotlightSection: React.FC<SpotlightSectionProps> = ({ onScrollToVe
               <div className="flex flex-wrap items-center gap-3 text-xs text-[#F0EBE0] pt-1">
                 <span className="flex items-center gap-1.5 bg-black/20 px-3.5 py-1.5 rounded-full border border-white/10">
                   <Mail className="w-3.5 h-3.5 text-[#F0EBE0]" />
-                  Email photos to: <strong className="text-white font-mono">{FESTIVAL_CONTACT_EMAIL}</strong>
+                  Email photos to: <strong className="text-white font-mono">{contactEmail}</strong>
                 </span>
                 <span className="flex items-center gap-1.5 bg-black/20 px-3.5 py-1.5 rounded-full border border-white/10">
                   <Store className="w-3.5 h-3.5 text-[#F0EBE0]" />
@@ -126,7 +133,7 @@ export const SpotlightSection: React.FC<SpotlightSectionProps> = ({ onScrollToVe
               </button>
 
               <a
-                href={`mailto:${FESTIVAL_CONTACT_EMAIL}?subject=Vendor%20Spotlight%20Photos%20Submission`}
+                href={`mailto:${contactEmail}?subject=Vendor%20Spotlight%20Photos%20Submission`}
                 className="w-full py-3 px-6 rounded-full font-bold uppercase tracking-wider text-center text-white bg-white/10 hover:bg-white/20 border border-white/20 text-xs transition-colors"
               >
                 Submit Photos via Email

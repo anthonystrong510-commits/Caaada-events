@@ -324,7 +324,7 @@ To manage notification preferences, contact {{contact_email}}.`,
                   After completing your payment, kindly send us the answer to your security question (or confirmation details if no security question is required) so we can verify your payment and confirm your booth reservation.
                 </p>
                 <a href="{{payment_link}}" style="display: inline-block; background-color: #5A5A40; color: #FFFFFF; text-decoration: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 700;">
-                  Track Application &amp; Submit Security Answer &rarr;
+                  Track Your Application &rarr;
                 </a>
               </div>
 

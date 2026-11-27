@@ -35,6 +35,7 @@ import {
   ApplicationStatus, 
   PaymentStatus,
   BoothId,
+  BoothTier,
   PaymentConfig,
   SmtpConfigData,
   FestivalConfigData,
@@ -62,6 +63,7 @@ interface VendorApplicationsTabProps {
   paymentConfig?: PaymentConfig;
   smtpConfig?: SmtpConfigData;
   festivalConfig?: FestivalConfigData;
+  boothTiers?: BoothTier[];
 }
 
 export function VendorApplicationsTab({
@@ -78,7 +80,8 @@ export function VendorApplicationsTab({
   onOpenInvoiceModal,
   paymentConfig,
   smtpConfig,
-  festivalConfig
+  festivalConfig,
+  boothTiers = BOOTH_TIERS
 }: VendorApplicationsTabProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -542,7 +545,7 @@ export function VendorApplicationsTab({
               </thead>
               <tbody className="divide-y divide-[#E8E2D6]">
                 {filteredApplications.map((app) => {
-                  const booth = BOOTH_TIERS.find(b => b.id === app.selectedBoothId);
+                  const booth = boothTiers.find(b => b.id === app.selectedBoothId);
                   const isSelected = selectedVendorIds.has(app.id);
                   const matchingInv = getMatchingInvoice(app);
 
@@ -1230,7 +1233,7 @@ export function VendorApplicationsTab({
                 <div className="p-4 rounded-xl bg-[#FDFBF7] border border-[#E8E2D6] space-y-2">
                   <div className="text-xs font-bold uppercase text-[#7A7566] tracking-wider">Space & Pricing Applied</div>
                   <div><strong>What Kind Of Vendor Are You?:</strong> <span className="font-semibold text-[#5A5A40]">{selectedAppForModal.vendorKind || 'Certified Farmer'}</span></div>
-                  <div><strong>Space Tier:</strong> {BOOTH_TIERS.find(b => b.id === selectedAppForModal.selectedBoothId)?.name || selectedAppForModal.selectedBoothId}</div>
+                  <div><strong>Space Tier:</strong> {boothTiers.find(b => b.id === selectedAppForModal.selectedBoothId)?.name || selectedAppForModal.selectedBoothId}</div>
                   <div><strong>Selected Sessions:</strong> {selectedAppForModal.selectedDays.map(d => d.toUpperCase()).join(', ')} ({selectedAppForModal.selectedDays.length} sessions)</div>
                   <div><strong>Calculated Fee:</strong> ${selectedAppForModal.totalCalculatedFee}</div>
                   <div><strong>Payment Status:</strong> <span className="font-semibold uppercase">{selectedAppForModal.paymentStatus || 'Unpaid'}</span></div>
@@ -1557,13 +1560,13 @@ export function VendorApplicationsTab({
                     value={newForm.selectedBoothId}
                     onChange={(e) => {
                       const id = e.target.value as BoothId;
-                      const tier = BOOTH_TIERS.find(b => b.id === id);
+                      const tier = boothTiers.find(b => b.id === id);
                       const fee = (tier?.pricePerDay || 100) * newForm.selectedDays.length;
                       setNewForm({ ...newForm, selectedBoothId: id, totalCalculatedFee: fee });
                     }}
                     className="w-full px-3 py-2 rounded-xl border border-[#E8E2D6]"
                   >
-                    {BOOTH_TIERS.map(b => (
+                    {boothTiers.map(b => (
                       <option key={b.id} value={b.id}>{b.name} (${b.pricePerDay}/day)</option>
                     ))}
                   </select>

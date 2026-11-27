@@ -35,7 +35,7 @@ export const AttendeeExperience: React.FC<AttendeeExperienceProps> = ({ onOpenAt
             </h2>
           </div>
           <p className="text-[#6B6658] text-sm sm:text-base leading-relaxed max-w-md">
-            Wander shaded promenades, meet passionate craftspeople face to face, share a picnic on the lawn, and enjoy live performances across three inviting days.
+            Wander shaded promenades, meet passionate craftspeople face to face, share a picnic on the lawn, and enjoy live performances Friday through Sunday from 9:00 AM to 7:00 PM daily.
           </p>
         </div>
 

@@ -20,7 +20,7 @@ interface ZoneInfo {
   type: string;
   boothIdRef?: string;
   description: string;
-  rate?: string;
+  footprint: string;
   color: string;
   coordinates: { x: number; y: number };
 }
@@ -32,20 +32,20 @@ export const InteractiveMap: React.FC = () => {
     {
       id: 'artisan-village',
       name: 'Artisan Village Promenade',
-      type: 'Tents & Crafts (10x10)',
+      type: 'Tents & Crafts (10×10)',
       boothIdRef: 'tent-10x10',
       description: 'Lively shaded walkway featuring handmade crafts, ceramics, jewelry, fine art, and home accents.',
-      rate: '$70 / day',
+      footprint: '10ft × 10ft Canopy Space',
       color: '#f59e0b',
       coordinates: { x: 38, y: 48 },
     },
     {
       id: 'main-street-corners',
       name: 'Central Marketplace Corners',
-      type: 'Prime Corner Placements (10x10)',
+      type: 'Prime Corner Placements (10×10)',
       boothIdRef: 'corner-10x10',
       description: 'High-traffic intersection corners with 360-degree customer foot traffic and dual open fronts.',
-      rate: '$180 / day',
+      footprint: 'Corner 10ft × 10ft Dual-Frontage',
       color: '#d97706',
       coordinates: { x: 52, y: 42 },
     },
@@ -54,28 +54,28 @@ export const InteractiveMap: React.FC = () => {
       name: 'Dining & Food Truck Row',
       type: 'Gourmet Food Trucks & Trailers',
       boothIdRef: 'food-truck',
-      description: 'Designated festival row for food trucks and trailers with picnic dining lawn and waste disposal access.',
-      rate: '$190 / day',
+      description: 'Designated row for food trucks and trailers with picnic dining lawn and waste disposal access.',
+      footprint: 'Food Truck / Trailer Bay (Up to 25ft)',
       color: '#10b981',
       coordinates: { x: 25, y: 70 },
     },
     {
       id: 'expo-boulevard',
-      name: 'Central Marketplace Boulevard (10x20)',
-      type: 'Double Width Booths (10x20)',
+      name: 'Central Marketplace Boulevard (10×20)',
+      type: 'Double Width Booths (10×20)',
       boothIdRef: 'tent-10x20',
       description: 'Expanded dual-space booths with 20ft display frontage for boutiques and larger merchandise.',
-      rate: '$100 / day',
+      footprint: '10ft × 20ft Double Canopy Space',
       color: '#8b5cf6',
       coordinates: { x: 62, y: 55 },
     },
     {
       id: 'flagship-lawn',
-      name: 'Event Lawn Flagship Pavilion (20x20)',
+      name: 'Event Lawn Flagship Pavilion (20×20)',
       type: 'Extra Large Pavilion',
       boothIdRef: 'extra-large-20x20',
       description: 'Spacious 400 sq ft footprint for major exhibitions, experiential lounges, and large brand displays.',
-      rate: '$180 / day',
+      footprint: '20ft × 20ft Flagship Pavilion',
       color: '#ec4899',
       coordinates: { x: 78, y: 65 },
     },
@@ -83,8 +83,8 @@ export const InteractiveMap: React.FC = () => {
       id: 'live-amphitheater',
       name: 'Festival Amphitheater Stage',
       type: 'Live Music & Performances',
-      description: 'Central stage hosting live jazz, R&B, cultural dance, acoustic sets, and community award ceremonies.',
-      rate: 'Public Stage Area',
+      description: 'Central stage hosting live jazz, R&B, cultural dance, acoustic sets, and community showcase programming.',
+      footprint: 'Public Lawn Stage Area',
       color: '#3b82f6',
       coordinates: { x: 45, y: 22 },
     },
@@ -93,7 +93,7 @@ export const InteractiveMap: React.FC = () => {
       name: 'Accessible Parking & Loading Gate',
       type: 'Designated Accessibility Zone',
       description: 'Dedicated parking and ramp access close to booth spaces for vendors and visitors with accessibility needs.',
-      rate: 'Special Provision (Reserve in advance)',
+      footprint: 'Special Provision (Reserve in application)',
       color: '#2563eb',
       coordinates: { x: 82, y: 25 },
     },
@@ -117,7 +117,7 @@ export const InteractiveMap: React.FC = () => {
           </h2>
           
           <p className="text-[#6B6658] text-base sm:text-lg">
-            Explore our curated layout and marketplace zones. Click any zone to view booth dimensions, rates, and surrounding attractions.
+            Explore our curated layout and marketplace zones. Click any zone to view booth dimensions, layout notes, and surrounding attractions.
           </p>
         </div>
 
@@ -167,19 +167,12 @@ export const InteractiveMap: React.FC = () => {
                         left: `${zone.coordinates.x}%`,
                         top: `${zone.coordinates.y}%`,
                       }}
-                      className={`absolute -translate-x-1/2 -translate-y-1/2 group transition-all z-20 focus:outline-none`}
+                      className="absolute -translate-x-1/2 -translate-y-1/2 group transition-all z-20 focus:outline-none"
                     >
-                      {/* Pulse effect if active */}
-                      {isActive && (
-                        <span
-                          className="absolute -inset-2 rounded-full border-2 border-[#5A5A40] animate-ping opacity-60"
-                        />
-                      )}
-                      
                       <div
                         className={`px-3 py-1.5 rounded-full border shadow-sm flex items-center gap-1.5 transition-transform group-hover:scale-105 ${
                           isActive 
-                            ? 'bg-[#5A5A40] text-white border-[#5A5A40] scale-105' 
+                            ? 'bg-[#5A5A40] text-white border-[#5A5A40] scale-105 ring-4 ring-[#5A5A40]/20' 
                             : 'bg-white text-[#3D3A30] border-[#E8E2D6] hover:border-[#5A5A40]'
                         }`}
                       >
@@ -197,19 +190,19 @@ export const InteractiveMap: React.FC = () => {
               <div className="relative z-10 flex flex-wrap items-center justify-between text-[11px] text-[#6B6658] bg-white/90 backdrop-blur-md p-2.5 rounded-2xl border border-[#E8E2D6] gap-2">
                 <span className="flex items-center gap-1">
                   <span className="w-2.5 h-2.5 rounded-full bg-[#5A5A40]" />
-                  10×10 Standard ($70/day)
+                  10×10 Standard Canopy
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="w-2.5 h-2.5 rounded-full bg-[#464632]" />
-                  Food Trucks ($190/day)
+                  Food Truck Row
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="w-2.5 h-2.5 rounded-full bg-[#7A7566]" />
-                  Corner Spots ($180/day)
+                  Prime Corner Spots
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="w-2.5 h-2.5 rounded-full bg-[#8E8B7B]" />
-                  10×20 Double ($100/day)
+                  10×20 Double Pavilion
                 </span>
               </div>
 
@@ -234,10 +227,10 @@ export const InteractiveMap: React.FC = () => {
               </div>
 
               <div className="p-4 rounded-2xl bg-[#FDFBF7] border border-[#E8E2D6] space-y-2">
-                <div className="flex items-center justify-between text-xs text-[#7A7566]">
-                  <span>Vendor Daily Rate:</span>
-                  <span className="text-base font-serif italic font-bold text-[#5A5A40]">
-                    {currentZone.rate}
+                <div className="flex items-center justify-between text-xs text-[#7A7566] gap-2">
+                  <span>Space Allocation:</span>
+                  <span className="text-sm font-serif italic font-bold text-[#5A5A40] text-right">
+                    {currentZone.footprint}
                   </span>
                 </div>
                 <p className="text-xs text-[#6B6658] leading-relaxed pt-1">
@@ -249,7 +242,7 @@ export const InteractiveMap: React.FC = () => {
               <div className="space-y-2 text-xs text-[#6B6658]">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-[#5A5A40] shrink-0" />
-                  <span>24-Hour security patrol on 2–3 consecutive day bookings</span>
+                  <span>Overnight security patrol on consecutive Fri–Sun bookings</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Store className="w-4 h-4 text-[#5A5A40] shrink-0" />

@@ -238,9 +238,9 @@ export const AttendeeRsvpModal: React.FC<AttendeeRsvpModalProps> = ({ isOpen, on
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { id: 'fri', label: 'Day 1 (Opening)' },
-                    { id: 'sat', label: 'Day 2 (Main Expo)' },
-                    { id: 'sun', label: 'Day 3 (Finale)' },
+                    { id: 'fri', label: 'Friday (9AM–7PM)' },
+                    { id: 'sat', label: 'Saturday (9AM–7PM)' },
+                    { id: 'sun', label: 'Sunday (9AM–7PM)' },
                   ].map((day) => {
                     const isSelected = formData.daysAttending.includes(day.id);
                     return (

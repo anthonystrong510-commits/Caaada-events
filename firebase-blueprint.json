@@ -1019,6 +1019,76 @@
         }
       },
       "required": ["id", "name", "stateCode", "population", "populationNumber"]
+    },
+    "BoothTier": {
+      "title": "BoothTier",
+      "description": "Admin-managed vendor booth tier, dimensions, capacity, and daily pricing rate.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "category": {
+          "type": "string",
+          "enum": ["FOOD", "BOOTH"]
+        },
+        "pricePerDay": {
+          "type": "number"
+        },
+        "dimensions": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "tagline": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "popular": {
+          "type": "boolean"
+        },
+        "featured": {
+          "type": "boolean"
+        },
+        "bestFor": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "included": {
+          "type": "array"
+        },
+        "capacityNote": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "badge": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "zone": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "capacity": {
+          "type": "number"
+        },
+        "soldOut": {
+          "type": "boolean"
+        },
+        "updatedAt": {
+          "type": "string",
+          "maxLength": 40
+        }
+      },
+      "required": ["id", "name", "category", "pricePerDay", "dimensions"]
     }
   },
   "firestore": {
@@ -1037,6 +1107,10 @@
     "/festival_config/{configId}": {
       "schema": "FestivalConfig",
       "description": "Global festival settings and event configuration document."
+    },
+    "/booth_tiers/{tierId}": {
+      "schema": "BoothTier",
+      "description": "Admin-managed booth tiers, dimensions, capacities, and daily pricing rates."
     },
     "/email_templates/{templateId}": {
       "schema": "EmailTemplate",

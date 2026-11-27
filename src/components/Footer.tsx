@@ -1,6 +1,7 @@
 import React from 'react';
 import { Store, Mail, MapPin, ArrowUp, ArrowRight, Ticket, Sun, Search } from 'lucide-react';
 import { EVENT_CONFIG, FESTIVAL_CONTACT_EMAIL, FESTIVAL_LOCATION } from '../data/festivalData';
+import { FestivalConfigData } from '../types';
 
 interface FooterProps {
   onScrollToVendorBooking: () => void;
@@ -8,14 +9,21 @@ interface FooterProps {
   onOpenVendorModal?: () => void;
   onOpenTrackerModal?: () => void;
   onNavigateToAdmin?: () => void;
+  festivalConfig?: FestivalConfigData;
 }
 
 export const Footer: React.FC<FooterProps> = ({
   onScrollToVendorBooking,
   onOpenAttendeeModal,
   onOpenVendorModal,
-  onOpenTrackerModal
+  onOpenTrackerModal,
+  festivalConfig
 }) => {
+  const contactEmail = festivalConfig?.contactEmail?.trim() || FESTIVAL_CONTACT_EMAIL;
+  const locationText = festivalConfig?.fullLocation?.trim() || FESTIVAL_LOCATION;
+  const festName = festivalConfig?.name?.trim() || EVENT_CONFIG.name;
+  const festDesc = festivalConfig?.description?.trim() || EVENT_CONFIG.description;
+
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -35,7 +43,7 @@ export const Footer: React.FC<FooterProps> = ({
               </div>
               <div>
                 <span className="font-serif italic font-bold text-lg text-[#3D3A30] block leading-tight">
-                  {EVENT_CONFIG.name}
+                  {festName}
                 </span>
                 <span className="text-xs text-[#5A5A40] uppercase tracking-widest font-bold">
                   Community Marketplace &amp; Gathering
@@ -44,7 +52,7 @@ export const Footer: React.FC<FooterProps> = ({
             </div>
 
             <p className="text-xs sm:text-sm text-[#6B6658] leading-relaxed max-w-md">
-              {EVENT_CONFIG.description}
+              {festDesc}
             </p>
 
             <div className="pt-2 flex flex-col gap-2 text-xs">
@@ -53,16 +61,16 @@ export const Footer: React.FC<FooterProps> = ({
                 <span>
                   General Inquiries:{' '}
                   <a
-                    href={`mailto:${FESTIVAL_CONTACT_EMAIL}`}
+                    href={`mailto:${contactEmail}`}
                     className="underline font-bold text-[#3D3A30] hover:text-[#5A5A40] font-mono"
                   >
-                    {FESTIVAL_CONTACT_EMAIL}
+                    {contactEmail}
                   </a>
                 </span>
               </div>
               <div className="flex items-center gap-2 text-[#6B6658]">
                 <MapPin className="w-4 h-4 text-[#5A5A40] shrink-0" />
-                <span>{FESTIVAL_LOCATION}</span>
+                <span>{locationText}</span>
               </div>
             </div>
           </div>
@@ -74,20 +82,20 @@ export const Footer: React.FC<FooterProps> = ({
             </span>
             <ul className="space-y-2 text-xs tabular-nums">
               <li className="flex justify-between pb-1.5 border-b border-[#E8E2D6]">
-                <span className="font-bold text-[#3D3A30]">Day 1 (Opening)</span>
-                <span className="text-[#5A5A40] font-semibold">1:00 PM – 5:30 PM</span>
+                <span className="font-bold text-[#3D3A30]">Friday</span>
+                <span className="text-[#5A5A40] font-semibold">9:00 AM – 7:00 PM</span>
               </li>
               <li className="flex justify-between pb-1.5 border-b border-[#E8E2D6]">
-                <span className="font-bold text-[#3D3A30]">Day 2 (Main Expo)</span>
-                <span className="text-[#5A5A40] font-semibold">10:00 AM – 5:00 PM</span>
+                <span className="font-bold text-[#3D3A30]">Saturday</span>
+                <span className="text-[#5A5A40] font-semibold">9:00 AM – 7:00 PM</span>
               </li>
               <li className="flex justify-between pb-1.5 border-b border-[#E8E2D6]">
-                <span className="font-bold text-[#3D3A30]">Day 3 (Finale)</span>
-                <span className="text-[#5A5A40] font-semibold">10:00 AM – 6:00 PM</span>
+                <span className="font-bold text-[#3D3A30]">Sunday</span>
+                <span className="text-[#5A5A40] font-semibold">9:00 AM – 7:00 PM</span>
               </li>
             </ul>
             <div className="text-[11px] text-[#7A7566] pt-1">
-              Morning load-in windows provided prior to opening. Booths remain open during festival hours.
+              Morning load-in runs 7:30 AM – 8:45 AM daily. Booths remain open 9:00 AM – 7:00 PM.
             </div>
           </div>
 
@@ -130,7 +138,7 @@ export const Footer: React.FC<FooterProps> = ({
                 >
                   <span className="flex items-center gap-2">
                     <Search className="w-4 h-4 text-[#5A5A40]" />
-                    <span>Track Application &amp; E-Transfer</span>
+                    <span>Track Application</span>
                   </span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
@@ -149,7 +157,7 @@ export const Footer: React.FC<FooterProps> = ({
         {/* Quiet Sub-footer */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#7A7566]">
           <div>
-            &copy; {new Date().getFullYear()} {EVENT_CONFIG.name}. All rights reserved.
+            &copy; {new Date().getFullYear()} {festName}. All rights reserved.
           </div>
 
           <button

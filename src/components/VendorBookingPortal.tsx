@@ -14,12 +14,13 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { BOOTH_TIERS, EVENT_CONFIG } from '../data/festivalData';
-import { BoothId } from '../types';
+import { BoothId, BoothTier } from '../types';
 import { TypesOfVendorBadge } from './TypesOfVendorBadge';
 
 interface VendorBookingPortalProps {
   onOpenVendorModal: (boothId?: BoothId, days?: Array<'fri' | 'sat' | 'sun'>) => void;
   onOpenTrackerModal?: () => void;
+  boothTiers?: BoothTier[];
 }
 
 const VENDOR_RESERVATION_FAQS = [
@@ -40,7 +41,7 @@ const VENDOR_RESERVATION_FAQS = [
   },
   {
     q: 'When is vendor load-in and what are the breakdown procedures?',
-    a: 'Standard Friday load-in begins at 8:00 AM through 12:30 PM with drive-up unloading. Saturday and Sunday restock windows open from 8:00 AM to 9:45 AM before public gates open. Booth breakdown begins only after public egress on Sunday at 6:00 PM for attendee safety.',
+    a: 'Morning load-in and drive-up unloading run 7:30 AM – 8:45 AM Friday through Sunday prior to the 9:00 AM public opening. Booth breakdown begins after the 7:00 PM closing each day for attendee safety.',
     keywords: ['load-in schedule', 'drive up unloading', 'booth setup hours', 'restock window', 'breakdown logistics']
   },
   {
@@ -52,7 +53,8 @@ const VENDOR_RESERVATION_FAQS = [
 
 export const VendorBookingPortal: React.FC<VendorBookingPortalProps> = ({
   onOpenVendorModal,
-  onOpenTrackerModal
+  onOpenTrackerModal,
+  boothTiers = BOOTH_TIERS
 }) => {
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
   const [showVendorTypes, setShowVendorTypes] = useState<boolean>(false);
@@ -68,7 +70,7 @@ export const VendorBookingPortal: React.FC<VendorBookingPortalProps> = ({
         <div className="text-center max-w-2xl mx-auto mb-10 space-y-2.5">
           <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-widest text-[#5A5A40] bg-[#F0EBE0] border border-[#E8E2D6]">
             <Store className="w-3.5 h-3.5 text-[#5A5A40]" />
-            Vendor Opportunities & Rates
+            Vendor Opportunities &amp; Booth Spaces
           </div>
           
           <h2 className="text-3xl sm:text-4xl font-serif italic font-bold text-[#3D3A30]">
@@ -84,20 +86,20 @@ export const VendorBookingPortal: React.FC<VendorBookingPortalProps> = ({
         <div className="bg-white rounded-[32px] border border-[#E8E2D6] p-6 sm:p-8 lg:p-10 shadow-sm">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
             
-            {/* Left Column: Pricing List & Amenities */}
+            {/* Left Column: Booth Footprints & Amenities */}
             <div className="lg:col-span-7 space-y-6">
               <div>
                 <span className="text-[11px] font-bold uppercase tracking-widest text-[#5A5A40] block mb-1">
-                  Booth Spaces & Daily Rates
+                  Available Booth Spaces
                 </span>
                 <h3 className="text-xl sm:text-2xl font-serif italic font-bold text-[#3D3A30]">
-                  Artisan & Food Vendor Spaces
+                  Artisan &amp; Food Vendor Spaces
                 </h3>
               </div>
 
-              {/* Compact Rates Table / List */}
+              {/* Compact Footprints List */}
               <div className="space-y-2.5">
-                {BOOTH_TIERS.map((tier) => (
+                {boothTiers.map((tier) => (
                   <div
                     key={tier.id}
                     className="flex items-center justify-between p-3 rounded-2xl bg-[#FDFBF7] border border-[#E8E2D6] hover:border-[#5A5A40]/40 transition-colors"
@@ -115,10 +117,9 @@ export const VendorBookingPortal: React.FC<VendorBookingPortalProps> = ({
                     </div>
 
                     <div className="text-right">
-                      <span className="font-serif italic font-bold text-sm sm:text-base text-[#3D3A30]">
-                        ${tier.pricePerDay}
+                      <span className="text-xs font-semibold text-[#5A5A40]">
+                        {tier.category === 'FOOD' ? 'Food & Culinary Bay' : 'Canopy / Pavilion'}
                       </span>
-                      <span className="text-[11px] text-[#7A7566]"> / day</span>
                     </div>
                   </div>
                 ))}
@@ -185,16 +186,16 @@ export const VendorBookingPortal: React.FC<VendorBookingPortalProps> = ({
                 
                 <div className="space-y-1">
                   <span className="text-xs text-[#E8E2D6] block">
-                    Starting Daily Rate
+                    Festival Operating Schedule
                   </span>
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-4xl sm:text-5xl font-serif italic font-bold text-white">
-                      $70
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl sm:text-4xl font-serif italic font-bold text-white">
+                      Fri – Sun
                     </span>
-                    <span className="text-xs text-[#E8E2D6]">/ day</span>
+                    <span className="text-xs text-[#E8E2D6]">9:00 AM – 7:00 PM Daily</span>
                   </div>
                   <p className="text-[11px] text-[#F0EBE0] leading-relaxed pt-1">
-                    Book single or multiple days. All spaces allocated on first-confirmed basis.
+                    Open the application dialog below to select your booth footprint, days, and view full booth pricing.
                   </p>
                 </div>
               </div>
@@ -231,12 +232,12 @@ export const VendorBookingPortal: React.FC<VendorBookingPortalProps> = ({
                     className="w-full py-2.5 rounded-full font-bold uppercase tracking-wider text-[11px] text-[#F0EBE0] bg-white/10 hover:bg-white/20 border border-white/20 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <Search className="w-3.5 h-3.5" />
-                    <span>Track Application &amp; Submit E-Transfer Answer</span>
+                    <span>Track Application</span>
                   </button>
                 )}
 
                 <p className="text-[10px] text-center text-[#E8E2D6]">
-                  Opens pop-up form with tier selection &amp; instant rate calculator.
+                  Opens application dialog with booth tier selection &amp; live pricing.
                 </p>
               </div>
 

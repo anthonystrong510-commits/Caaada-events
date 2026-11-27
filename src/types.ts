@@ -17,6 +17,7 @@ export interface BoothTier {
   zone: string;
   capacity?: number;
   soldOut?: boolean;
+  updatedAt?: string;
 }
 
 export interface FestivalDay {

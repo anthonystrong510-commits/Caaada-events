@@ -74,7 +74,7 @@ export async function sendAutomatedEmail(options: SendEmailOptions): Promise<Sen
   const unsubUrl = `${baseUrl}/?unsubscribe=${encodeURIComponent(recipientEmail)}&scope=all`;
   const prefUrl = `${baseUrl}/?unsubscribe=${encodeURIComponent(recipientEmail)}&tab=preferences`;
   const physicalAddr = festivalConfig?.address || 'Columbia Festival & Market Grounds, 1100 Lincoln St, Columbia, SC 29201, USA';
-  const contactEmail = smtpConfig?.fromEmail || festivalConfig?.contactEmail || 'events@companydesk.online';
+  const contactEmail = festivalConfig?.contactEmail || smtpConfig?.fromEmail || 'organizers@festivalmarket.org';
 
   let eTransferEmail = DEFAULT_ETRANSFER_EMAIL;
   try {

@@ -37,9 +37,10 @@ import {
   PaymentConfig,
   Invoice,
   InvoiceStatus,
-  InvoicePaymentSubmission
+  InvoicePaymentSubmission,
+  BoothTier
 } from '../types';
-import { EVENT_CONFIG } from '../data/festivalData';
+import { EVENT_CONFIG, BOOTH_TIERS } from '../data/festivalData';
 import { DEFAULT_EMAIL_TEMPLATES } from '../data/defaultEmailTemplates';
 
 export const DEFAULT_ETRANSFER_EMAIL = 'festvendorstate@gmail.com';
@@ -137,6 +138,7 @@ if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
       localStorage.removeItem('columbia_event_locations_cache_v6_100events');
       localStorage.removeItem('columbia_deleted_location_ids_v1');
       localStorage.removeItem('columbia_custom_cities_cache_v1');
+      localStorage.removeItem('columbia_booth_tiers_cache_v1');
       localStorage.setItem(activeDbKey, resolvedConfig.firestoreDatabaseId);
     }
   } catch {}
@@ -869,7 +871,7 @@ export const DEFAULT_FESTIVAL_CONFIG: FestivalConfigData = {
   active: true,
   siteDomain: 'https://skysevents.online',
   seoTitle: 'Community Vendor Marketplace & Festival Expo',
-  seoDescription: 'Premier 3-day community vendor marketplace, artisan craft fair, food truck rally, live music concerts, and nationwide 50 states market directory. Free attendee passes and vendor bookings open.',
+  seoDescription: 'Community vendor marketplace, artisan craft fair, food truck rally, and live music concerts open Friday through Sunday (9:00 AM – 7:00 PM daily). Free attendee passes and vendor applications open.',
   seoKeywords: 'community vendor market, artisan craft fair, food truck festival, local business pop-up, 50 states vendor directory, festival ticket reservation, live music festival, artisan marketplace',
   datingKeywords: '',
   updatedAt: new Date().toISOString()
@@ -1528,3 +1530,131 @@ export function subscribeInvoices(callback: (invoices: Invoice[]) => void): () =
     }
   );
 }
+
+// -------------------------------------------------------------
+// BOOTH TIERS & ADMIN PRICING CONFIGURATION
+// -------------------------------------------------------------
+const BOOTH_TIERS_CACHE_KEY = 'columbia_booth_tiers_cache_v1';
+const boothTierListeners = new Set<(tiers: BoothTier[]) => void>();
+
+function mergeBoothTiersWithDefaults(overrides: BoothTier[]): BoothTier[] {
+  const byId = new Map<string, BoothTier>();
+  overrides.forEach((item) => {
+    if (item && item.id) {
+      byId.set(item.id, item);
+    }
+  });
+  return BOOTH_TIERS.map((defTier) => {
+    const custom = byId.get(defTier.id);
+    return custom ? { ...defTier, ...custom } : defTier;
+  });
+}
+
+function readCachedBoothTiers(): BoothTier[] {
+  try {
+    const raw = localStorage.getItem(BOOTH_TIERS_CACHE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return mergeBoothTiersWithDefaults(parsed as BoothTier[]);
+      }
+    }
+  } catch {}
+  return BOOTH_TIERS;
+}
+
+function writeCachedBoothTiers(tiers: BoothTier[]) {
+  try {
+    localStorage.setItem(BOOTH_TIERS_CACHE_KEY, JSON.stringify(tiers));
+  } catch {}
+  boothTierListeners.forEach((cb) => {
+    try {
+      cb(tiers);
+    } catch {}
+  });
+}
+
+export function subscribeBoothTiers(callback: (tiers: BoothTier[]) => void): () => void {
+  boothTierListeners.add(callback);
+  callback(readCachedBoothTiers());
+
+  const q = query(collection(db, 'booth_tiers'), limit(20));
+
+  const unsubSnapshot = onSnapshot(
+    q,
+    (snap) => {
+      if (snap.empty) {
+        callback(readCachedBoothTiers());
+        return;
+      }
+      const docs = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<BoothTier, 'id'>) }) as BoothTier);
+      const merged = mergeBoothTiersWithDefaults(docs);
+      try {
+        localStorage.setItem(BOOTH_TIERS_CACHE_KEY, JSON.stringify(merged));
+      } catch {}
+      callback(merged);
+    },
+    (err) => {
+      console.warn('Booth tiers snapshot fallback active:', err);
+      callback(readCachedBoothTiers());
+    }
+  );
+
+  return () => {
+    boothTierListeners.delete(callback);
+    unsubSnapshot();
+  };
+}
+
+export async function saveBoothTier(tier: BoothTier): Promise<BoothTier> {
+  const now = new Date().toISOString();
+  const payload = cleanFirestoreData({
+    id: tier.id,
+    name: tier.name.trim(),
+    category: tier.category,
+    pricePerDay: Math.max(0, Number(tier.pricePerDay || 0)),
+    dimensions: tier.dimensions.trim(),
+    tagline: tier.tagline,
+    description: tier.description,
+    popular: Boolean(tier.popular),
+    featured: Boolean(tier.featured),
+    bestFor: tier.bestFor,
+    included: Array.isArray(tier.included) ? tier.included : [],
+    capacityNote: tier.capacityNote,
+    badge: tier.badge,
+    zone: tier.zone,
+    capacity: tier.capacity !== undefined ? Number(tier.capacity) : 20,
+    soldOut: Boolean(tier.soldOut),
+    updatedAt: now
+  }) as BoothTier;
+
+  const updatedList = readCachedBoothTiers().map((t) => (t.id === payload.id ? { ...t, ...payload } : t));
+  writeCachedBoothTiers(updatedList);
+
+  if (auth.currentUser) {
+    try {
+      await setDoc(doc(db, 'booth_tiers', payload.id), payload);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `booth_tiers/${payload.id}`);
+    }
+  }
+
+  return payload;
+}
+
+export async function resetBoothTiersToDefault(): Promise<void> {
+  const now = new Date().toISOString();
+  const defaults = BOOTH_TIERS.map((tier) => ({ ...tier, updatedAt: now }));
+  writeCachedBoothTiers(defaults);
+
+  if (auth.currentUser) {
+    try {
+      for (const tier of defaults) {
+        await setDoc(doc(db, 'booth_tiers', tier.id), cleanFirestoreData(tier));
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'booth_tiers');
+    }
+  }
+}
+
